@@ -136,6 +136,29 @@ grub_efi_env_init (void)
   grub_free (envblk_s.buf);
 }
 
+static void
+grub_efi_print_gdb_info (void)
+{
+  grub_addr_t text;
+  grub_addr_t data;
+
+  text = grub_efi_section_addr (".text");
+  if (!text)
+    return;
+
+  data = grub_efi_section_addr (".data");
+  if (data)
+    grub_qdprintf ("gdb",
+		  "add-symbol-file /usr/lib/debug/usr/lib/grub/%s-%s/"
+		  "kernel.exec %p -s .data %p\n",
+		  GRUB_TARGET_CPU, GRUB_PLATFORM, (void *)text, (void *)data);
+  else
+    grub_qdprintf ("gdb",
+		  "add-symbol-file /usr/lib/debug/usr/lib/grub/%s-%s/"
+		  "kernel.exec %p\n",
+		  GRUB_TARGET_CPU, GRUB_PLATFORM, (void *)text);
+}
+
 __attribute__ ((__optimize__ ("-fno-stack-protector"))) void
 grub_efi_init (void)
 {
@@ -162,6 +185,7 @@ grub_efi_init (void)
   grub_efi_system_table->boot_services->set_watchdog_timer (0, 0, 0, NULL);
 
   grub_efi_env_init ();
+  grub_efi_print_gdb_info ();
   grub_efidisk_init ();
 
   grub_efi_register_debug_commands ();
