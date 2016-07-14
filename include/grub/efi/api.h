@@ -367,6 +367,15 @@
 #define GRUB_EFI_RNG_PROTOCOL_GUID \
   { 0x3152bca5, 0xeade, 0x433d, \
     { 0x86, 0x2e, 0xc0, 0x1c, 0xdc, 0x29, 0x1f, 0x44 } \
+
+#define GRUB_EFI_IP4_CONFIG2_PROTOCOL_GUID \
+  { 0x5b446ed1, 0xe30b, 0x4faa, \
+      { 0x87, 0x1a, 0x36, 0x54, 0xec, 0xa3, 0x60, 0x80 } \
+  }
+
+#define GRUB_EFI_IP6_CONFIG_PROTOCOL_GUID \
+  { 0x937fe521, 0x95ae, 0x4d1a, \
+      { 0x89, 0x29, 0x48, 0xbc, 0xd9, 0x0a, 0xd3, 0x1a } \
   }
 
 #define LINUX_EFI_INITRD_MEDIA_GUID  \
@@ -1962,6 +1971,76 @@ struct grub_efi_load_file2
                                                 void *buffer);
 };
 typedef struct grub_efi_load_file2 grub_efi_load_file2_t;
+
+enum grub_efi_ip4_config2_data_type {
+  GRUB_EFI_IP4_CONFIG2_DATA_TYPE_INTERFACEINFO,
+  GRUB_EFI_IP4_CONFIG2_DATA_TYPE_POLICY,
+  GRUB_EFI_IP4_CONFIG2_DATA_TYPE_MANUAL_ADDRESS,
+  GRUB_EFI_IP4_CONFIG2_DATA_TYPE_GATEWAY,
+  GRUB_EFI_IP4_CONFIG2_DATA_TYPE_DNSSERVER,
+  GRUB_EFI_IP4_CONFIG2_DATA_TYPE_MAXIMUM
+};
+typedef enum grub_efi_ip4_config2_data_type grub_efi_ip4_config2_data_type_t;
+
+struct grub_efi_ip4_config2_protocol
+{
+  grub_efi_status_t (*set_data) (struct grub_efi_ip4_config2_protocol *this,
+				 grub_efi_ip4_config2_data_type_t data_type,
+				 grub_efi_uintn_t data_size,
+				 void *data);
+
+  grub_efi_status_t (*get_data) (struct grub_efi_ip4_config2_protocol *this,
+				 grub_efi_ip4_config2_data_type_t data_type,
+				 grub_efi_uintn_t *data_size,
+				 void *data);
+
+  grub_efi_status_t (*register_data_notify) (struct grub_efi_ip4_config2_protocol *this,
+					     grub_efi_ip4_config2_data_type_t data_type,
+					     grub_efi_event_t event);
+
+  grub_efi_status_t (*unregister_datanotify) (struct grub_efi_ip4_config2_protocol *this,
+					     grub_efi_ip4_config2_data_type_t data_type,
+					     grub_efi_event_t event);
+};
+typedef struct grub_efi_ip4_config2_protocol grub_efi_ip4_config2_protocol_t;
+
+enum grub_efi_ip6_config_data_type {
+  GRUB_EFI_IP6_CONFIG_DATA_TYPE_INTERFACEINFO,
+  GRUB_EFI_IP6_CONFIG_DATA_TYPE_ALT_INTERFACEID,
+  GRUB_EFI_IP6_CONFIG_DATA_TYPE_POLICY,
+  GRUB_EFI_IP6_CONFIG_DATA_TYPE_DUP_ADDR_DETECT_TRANSMITS,
+  GRUB_EFI_IP6_CONFIG_DATA_TYPE_MANUAL_ADDRESS,
+  GRUB_EFI_IP6_CONFIG_DATA_TYPE_GATEWAY,
+  GRUB_EFI_IP6_CONFIG_DATA_TYPE_DNSSERVER,
+  GRUB_EFI_IP6_CONFIG_DATA_TYPE_MAXIMUM
+};
+typedef enum grub_efi_ip6_config_data_type grub_efi_ip6_config_data_type_t;
+
+struct grub_efi_ip6_config_protocol
+{
+  grub_efi_status_t (*set_data) (struct grub_efi_ip6_config_protocol *this,
+				 grub_efi_ip6_config_data_type_t data_type,
+				 grub_efi_uintn_t data_size,
+				 void *data);
+
+  grub_efi_status_t (*get_data) (struct grub_efi_ip6_config_protocol *this,
+				 grub_efi_ip6_config_data_type_t data_type,
+				 grub_efi_uintn_t *data_size,
+				 void *data);
+
+  grub_efi_status_t (*register_data_notify) (struct grub_efi_ip6_config_protocol *this,
+					     grub_efi_ip6_config_data_type_t data_type,
+					     grub_efi_event_t event);
+
+  grub_efi_status_t (*unregister_datanotify) (struct grub_efi_ip6_config_protocol *this,
+					     grub_efi_ip6_config_data_type_t data_type,
+					     grub_efi_event_t event);
+};
+typedef struct grub_efi_ip6_config_protocol grub_efi_ip6_config_protocol_t;
+
+#if (GRUB_TARGET_SIZEOF_VOID_P == 4) || defined (__ia64__) \
+  || defined (__aarch64__) || defined (__MINGW64__) || defined (__CYGWIN__) \
+  || defined(__riscv)
 
 struct initrd_media_device_path {
   grub_efi_vendor_media_device_path_t  vendor;
