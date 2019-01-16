@@ -56,6 +56,11 @@ struct grub_arm64_linux_pe_header
 # define grub_armxx_linux_pe_header grub_arm64_linux_pe_header
 #endif
 
+#define GRUB_EFI_GRUB_VARIABLE_GUID \
+  { 0x91376aff, 0xcba6, 0x42be, \
+    { 0x94, 0x9d, 0x06, 0xfd, 0xe8, 0x11, 0x28, 0xe8 } \
+  }
+
 /* Variables.  */
 extern grub_efi_system_table_t *EXPORT_VAR(grub_efi_system_table);
 extern grub_efi_handle_t EXPORT_VAR(grub_efi_image_handle);
