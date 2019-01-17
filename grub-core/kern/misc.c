@@ -205,17 +205,25 @@ grub_debug_enabled (const char * condition)
   const char *debug, *found;
   grub_size_t clen;
   int ret = 0;
+  char *negcond;
+  int negated = 0;
 
   debug = grub_env_get ("debug");
   if (!debug)
     return 0;
 
-  if (grub_strword (debug, "all"))
+  negcond = grub_zalloc (grub_strlen (condition) + 2);
+  if (negcond)
     {
-      if (debug[3] == '\0')
-	return 1;
-      ret = 1;
+      grub_strcpy (negcond, "-");
+      grub_strcpy (negcond+1, condition);
+      negated = grub_strword (debug, negcond);
+      grub_free (negcond);
     }
+
+  if (!negated &&
+      (grub_strword (debug, "all") || grub_strword (debug, condition)))
+    return 1;
 
   clen = grub_strlen (condition);
   found = debug-1;
