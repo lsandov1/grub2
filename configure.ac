@@ -2127,6 +2127,9 @@ if test x"$enable_werror" != xno ; then
   fi
 fi
 
+TARGET_CFLAGS="$TARGET_CFLAGS -Werror=trampolines -fno-trampolines"
+HOST_CFLAGS="$HOST_CFLAGS -Werror=trampolines -fno-trampolines"
+
 TARGET_CPP="$TARGET_CC -E"
 TARGET_CCAS=$TARGET_CC
 
