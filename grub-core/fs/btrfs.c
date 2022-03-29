@@ -2371,6 +2371,7 @@ grub_btrfs_dir (grub_device_t device, const char *path,
   grub_uint8_t type;
   grub_size_t est_size = 0;
   char *new_path = NULL;
+  grub_size_t est_size = 0;
 
   if (!data)
     return grub_errno;
