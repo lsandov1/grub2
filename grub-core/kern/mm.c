@@ -544,6 +544,32 @@ grub_memalign (grub_size_t align, grub_size_t size)
       count++;
       goto again;
 
+    case 1:
+      /* Request additional pages, contiguous */
+      count++;
+
+      if (grub_mm_add_region_fn != NULL &&
+          grub_mm_add_region_fn (size, GRUB_MM_ADD_REGION_CONSECUTIVE) == GRUB_ERR_NONE)
+	goto again;
+
+      /* fallthrough  */
+
+    case 2:
+      /* Request additional pages, anything at all */
+      count++;
+
+      if (grub_mm_add_region_fn != NULL)
+        {
+          /*
+           * Try again even if this fails, in case it was able to partially
+           * satisfy the request
+           */
+          grub_mm_add_region_fn (size, GRUB_MM_ADD_REGION_NONE);
+          goto again;
+        }
+
+      /* fallthrough */
+
     default:
       break;
     }
