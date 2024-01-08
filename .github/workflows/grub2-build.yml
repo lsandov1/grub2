@@ -1,0 +1,11 @@
+on: [push]
+jobs:
+  grub2-build:
+    runs-on: self-hosted
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - run: ls -la
+      - run: ./bootstrap
+      - run: ./configure
+      - run: make
