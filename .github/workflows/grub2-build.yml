@@ -1,6 +1,6 @@
 on: [push]
 jobs:
-  grub2-build:
+  grub2-build-koji:
     runs-on: self-hosted
     steps:
       - name: Check out repository code
@@ -38,4 +38,12 @@ jobs:
           --with-grubdir=grub2 \
           --program-transform-name=s,grub,grub2, \
           --disable-werror
+      - run: make
+  grub2-build-upstream:
+    runs-on: self-hosted
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - run: ./bootstrap
+      - run: ./configure
       - run: make
