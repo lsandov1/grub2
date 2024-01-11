@@ -39,7 +39,7 @@ jobs:
   #         --program-transform-name=s,grub,grub2, \
   #         --disable-werror
   #     - run: make
-  grub2-build-upstream-with-utils-host-param:
+  grub2-build-upstream-with-utils-host:
     runs-on: self-hosted
     steps:
       - name: Check out repository code
@@ -47,7 +47,15 @@ jobs:
       - run: ./bootstrap
       - run: ./configure --with-utils=host
       - run: make
-  grub2-build-upstream-without-params:
+  grub2-build-upstream-with-utils-target:
+    runs-on: self-hosted
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - run: ./bootstrap
+      - run: ./configure --with-utils=target
+      - run: make
+  grub2-build-upstream-default:
     runs-on: self-hosted
     steps:
       - name: Check out repository code
