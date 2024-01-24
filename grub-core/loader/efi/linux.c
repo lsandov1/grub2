@@ -524,7 +524,8 @@ fallback:
 
   grub_dprintf ("linux", "kernel @ %p\n", kernel_addr);
 
-  if (!grub_linuxefi_secure_validate (kernel_addr, kernel_size))
+  rc = grub_linuxefi_secure_validate (kernel_addr, kernel_size);
+  if (rc < 0)
     {
       grub_error (GRUB_ERR_INVALID_COMMAND, N_("%s has invalid signature"), argv[0]);
       goto fail;
