@@ -26,7 +26,7 @@
 #include <grub/i18n.h>
 #include <grub/lib/cmdline.h>
 #include <grub/efi/efi.h>
-#include <grub/efi/linux.h>
+#include <grub/386/efi/linux.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
