@@ -1,0 +1,11 @@
+on: [push]
+jobs:
+  build:
+    runs-on: self-hosted
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - run: ./bootstrap
+      - run: rm -rf build-x64 && mkdir build-x64;
+      - run: cd build-x64 && ../configure
+      - run: cd build-x64 && make
