@@ -348,12 +348,21 @@ grub_efi_secure_boot (void)
   secure_boot = grub_efi_get_variable("SecureBoot", &efi_var_guid, &datasize);
 
   if (datasize != 1 || !secure_boot)
-    goto out;
+    {
+      grub_dprintf ("secureboot", "No SecureBoot variable\n");
+      goto out;
+    }
+  grub_dprintf ("secureboot", "SecureBoot: %d\n", *secure_boot);
+
 
   setup_mode = grub_efi_get_variable("SetupMode", &efi_var_guid, &datasize);
 
   if (datasize != 1 || !setup_mode)
-    goto out;
+    {
+      grub_dprintf ("secureboot", "No SetupMode variable\n");
+      goto out;
+    }
+  grub_dprintf ("secureboot", "SetupMode: %d\n", *setup_mode);
 
   if (*secure_boot && !*setup_mode)
     ret = 1;
