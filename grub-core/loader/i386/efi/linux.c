@@ -27,6 +27,7 @@
 #include <grub/lib/cmdline.h>
 #include <grub/efi/efi.h>
 #include <grub/386/efi/linux.h>
+#include <grub/cpu/efi/memory.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -174,7 +175,9 @@ grub_cmd_initrd (grub_command_t cmd __attribute__ ((unused)),
       size += ALIGN_UP (grub_file_size (files[i]), 4);
     }
 
-  initrd_mem = grub_efi_allocate_pages_max (0x3fffffff, BYTES_TO_PAGES(size));
+  initrd_mem = grub_efi_allocate_pages_max (GRUB_EFI_MAX_ALLOCATION_ADDRESS, BYTES_TO_PAGES(size));
+  if (!initrd_mem)
+    initrd_mem = grub_efi_allocate_pages_max (GRUB_EFI_MAX_USABLE_ADDRESS, BYTES_TO_PAGES(size));
   if (!initrd_mem)
     {
       grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("can't allocate initrd"));
@@ -270,7 +273,11 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
       goto fail;
     }
 
-  params = grub_efi_allocate_pages_max (0x3fffffff, BYTES_TO_PAGES(16384));
+  params = grub_efi_allocate_pages_max (GRUB_EFI_MAX_ALLOCATION_ADDRESS,
+                                        BYTES_TO_PAGES(sizeof(*params)));
+  if (!params)
+    params = grub_efi_allocate_pages_max (GRUB_EFI_MAX_USABLE_ADDRESS,
+                                          BYTES_TO_PAGES(sizeof(*params)));
 
   if (! params)
     {
@@ -341,8 +348,11 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
 #endif
 
   grub_dprintf ("linux", "setting up cmdline\n");
-  linux_cmdline = grub_efi_allocate_pages_max(0x3fffffff,
-                                         BYTES_TO_PAGES(lh.cmdline_size + 1));
+  linux_cmdline = grub_efi_allocate_pages_max(GRUB_EFI_MAX_ALLOCATION_ADDRESS,
+                                              BYTES_TO_PAGES(lh->cmdline_size + 1));
+  if (!linux_cmdline)
+    linux_cmdline = grub_efi_allocate_pages_max(GRUB_EFI_MAX_USABLE_ADDRESS,
+                                                BYTES_TO_PAGES(lh->cmdline_size + 1));
 
   if (!linux_cmdline)
     {
