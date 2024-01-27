@@ -152,7 +152,6 @@ EXPORT_FUNC (grub_efi_set_variable) (const char *var,
 				     const grub_guid_t *guid,
 				     void *data,
 				     grub_size_t datasize);
-grub_efi_boolean_t EXPORT_FUNC (grub_efi_secure_boot) (void);
 grub_err_t
 EXPORT_FUNC (grub_efi_set_variable_to_string) (const char *name, const grub_guid_t *guid,
 					       const char *value, grub_efi_uint32_t attributes);
