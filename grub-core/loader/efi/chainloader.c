@@ -26,6 +26,7 @@
 #include <grub/disk.h>
 #include <grub/efi/pe32.h>
 #include <grub/efi/linux.h>
+#include <grub/efi/sb.h>
 #include <grub/misc.h>
 #include <grub/charset.h>
 #include <grub/mm.h>
