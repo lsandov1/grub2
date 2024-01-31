@@ -1080,6 +1080,7 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
       grub_loader_set (grub_chainloader_boot, grub_chainloader_unload, 0);
       return 0;
     }
+  // -1 fall-through to fail
 
  fail:
 
