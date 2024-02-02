@@ -34,7 +34,6 @@
 #include <grub/i18n.h>
 #include <grub/lib/cmdline.h>
 #include <grub/verify.h>
-#include <grub/efi/sb.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -561,17 +560,6 @@ fallback:
     }
 
   grub_dprintf ("linux", "kernel @ %p\n", kernel_addr);
-
-  if (grub_efi_get_secureboot () == GRUB_EFI_SECUREBOOT_MODE_ENABLED)
-    {
-      rc = grub_linuxefi_secure_validate (kernel_addr, kernel_size);
-      if (rc <= 0)
-	{
-	  grub_error (GRUB_ERR_INVALID_COMMAND,
-		      N_("%s has invalid signature"), argv[0]);
-	  goto fail;
-	}
-    }
 
   pe = (void *)((unsigned long)kernel_addr + lh.hdr_offset);
   handover_offset = pe->opt.entry_addr;
