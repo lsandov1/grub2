@@ -72,45 +72,6 @@ static struct allocation_choice saved_addresses[4];
 #define save_addresses() grub_memcpy(saved_addresses, max_addresses, sizeof(max_addresses))
 #define restore_addresses() grub_memcpy(max_addresses, saved_addresses, sizeof(max_addresses))
 
-#define SHIM_LOCK_GUID                                                  \
- { 0x605dab50, 0xe046, 0x4300, {0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23} }
-
-struct grub_efi_shim_lock
-{
-  grub_efi_status_t (*verify) (void *buffer, grub_uint32_t size);
-};
-typedef struct grub_efi_shim_lock grub_efi_shim_lock_t;
-
-int
-grub_linuxefi_secure_validate (void *data, grub_uint32_t size)
-{
-  grub_efi_guid_t guid = SHIM_LOCK_GUID;
-  grub_efi_shim_lock_t *shim_lock;
-  grub_efi_status_t status;
-
-  grub_dprintf ("secureboot", "shim_lock: %p\n", shim_lock);
-  shim_lock = grub_efi_locate_protocol(&guid, NULL);
-
-  if (!shim_lock)
-    {
-      grub_dprintf ("secureboot", "shim not available\n");
-      return 0;
-    }
-
-  grub_dprintf ("secureboot", "Asking shim to verify kernel signature\n");
-  status = shim_lock->verify (data, size);
-  grub_dprintf ("secureboot", "shim_lock->verify(): %ld\n", (long int)status);
-  if (status == GRUB_EFI_SUCCESS)
-    {
-      grub_dprintf ("secureboot", "Kernel signature verification passed\n");
-      return 1;
-    }
-  grub_dprintf ("secureboot", "Kernel signature verification failed (0x%lx)\n",
-                (unsigned long) status);
-
-  return -1;
-}
-
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-align"
 
