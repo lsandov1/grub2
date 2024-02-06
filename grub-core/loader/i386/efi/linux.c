@@ -94,7 +94,7 @@ static struct allocation_choice max_addresses[] =
     { NO_MEM, 0, 0 }
   };
 
-static struct allocation_choice saved_addresses[4];
+static struct allocation_choice saved_addresses[sizeof(max_addresses) / sizeof(max_addresses[0])];
 
 #define save_addresses() grub_memcpy(saved_addresses, max_addresses, sizeof(max_addresses))
 #define restore_addresses() grub_memcpy(max_addresses, saved_addresses, sizeof(max_addresses))
