@@ -36,6 +36,26 @@ struct linux_arch_kernel_header {
   struct grub_pe_image_header pe_image_header;
 };
 
+#if defined(__arm__)
+struct grub_arm_linux_pe_header
+{
+  grub_uint32_t magic;
+  struct grub_pe32_coff_header coff;
+  struct grub_pe32_optional_header opt;
+};
+# define grub_armxx_linux_pe_header grub_arm_linux_pe_header
+#endif
+
+#if defined(__aarch64__)
+struct grub_arm64_linux_pe_header
+{
+  grub_uint32_t magic;
+  struct grub_pe32_coff_header coff;
+  struct grub_pe64_optional_header opt;
+};
+# define grub_armxx_linux_pe_header grub_arm64_linux_pe_header
+#endif
+
 /* Functions.  */
 void *EXPORT_FUNC(grub_efi_locate_protocol) (grub_guid_t *protocol,
 					     void *registration);
@@ -61,6 +81,9 @@ EXPORT_FUNC(grub_efi_allocate_fixed) (grub_efi_physical_address_t address,
 				      grub_efi_uintn_t pages);
 void *
 EXPORT_FUNC(grub_efi_allocate_any_pages) (grub_efi_uintn_t pages);
+void *
+EXPORT_FUNC(grub_efi_allocate_pages_max) (grub_efi_physical_address_t max,
+					  grub_efi_uintn_t pages);
 void EXPORT_FUNC(grub_efi_free_pages) (grub_efi_physical_address_t address,
 				       grub_efi_uintn_t pages);
 grub_efi_uintn_t EXPORT_FUNC(grub_efi_find_mmap_size) (void);
@@ -111,6 +134,7 @@ EXPORT_FUNC (grub_efi_set_variable) (const char *var,
 grub_err_t
 EXPORT_FUNC (grub_efi_set_variable_to_string) (const char *name, const grub_guid_t *guid,
 					       const char *value, grub_efi_uint32_t attributes);
+grub_efi_boolean_t EXPORT_FUNC (grub_efi_secure_boot) (void);
 int
 EXPORT_FUNC (grub_efi_compare_device_paths) (const grub_efi_device_path_t *dp1,
 					     const grub_efi_device_path_t *dp2);
@@ -122,6 +146,12 @@ extern void (*EXPORT_VAR(grub_efi_net_config)) (grub_efi_handle_t hnd,
 void *
 EXPORT_FUNC (grub_efi_find_configuration_table) (const grub_guid_t *target_guid);
 
+grub_efi_boolean_t
+EXPORT_FUNC(grub_linuxefi_secure_validate) (void *data, grub_uint32_t size);
+grub_err_t
+EXPORT_FUNC(grub_efi_linux_boot) (void *kernel_address, grub_off_t offset,
+				  void *kernel_param);
+
 #if defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__loongarch__)
 void *EXPORT_FUNC(grub_efi_get_firmware_fdt)(void);
 grub_err_t EXPORT_FUNC(grub_efi_get_ram_base)(grub_addr_t *);
@@ -129,8 +159,7 @@ grub_err_t EXPORT_FUNC(grub_efi_get_ram_base)(grub_addr_t *);
 #include <grub/file.h>
 grub_err_t grub_arch_efi_linux_load_image_header(grub_file_t file,
                                                 struct linux_arch_kernel_header *lh);
-grub_err_t grub_arch_efi_linux_boot_image(grub_addr_t addr, grub_size_t size,
-                                           char *args);
+grub_err_t grub_arch_efi_linux_boot_image(grub_addr_t addr, char *args);
 
 grub_addr_t grub_efi_section_addr (const char *section);
 
