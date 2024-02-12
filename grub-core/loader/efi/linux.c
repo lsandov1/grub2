@@ -25,6 +25,7 @@
 #include <grub/loader.h>
 #include <grub/mm.h>
 #include <grub/types.h>
+#include <grub/cpu/linux.h>
 #include <grub/efi/efi.h>
 #include <grub/efi/fdtload.h>
 #include <grub/efi/memory.h>
@@ -41,6 +42,7 @@ static int loaded;
 
 static void *kernel_addr;
 static grub_uint64_t kernel_size;
+static grub_uint32_t handover_offset;
 
 static char *linux_args;
 static grub_uint32_t cmdline_size;
@@ -86,6 +88,52 @@ grub_efi_initrd_load_file2 (grub_efi_load_file2_t *this,
 static grub_efi_load_file2_t initrd_lf2 = {
   grub_efi_initrd_load_file2
 };
+
+
+#define SHIM_LOCK_GUID \
+ { 0x605dab50, 0xe046, 0x4300, {0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23} }
+
+struct grub_efi_shim_lock
+{
+  grub_efi_status_t (*verify) (void *buffer, grub_uint32_t size);
+};
+typedef struct grub_efi_shim_lock grub_efi_shim_lock_t;
+
+grub_efi_boolean_t
+grub_linuxefi_secure_validate (void *data, grub_uint32_t size)
+{
+  grub_efi_guid_t guid = SHIM_LOCK_GUID;
+  grub_efi_shim_lock_t *shim_lock;
+
+  shim_lock = grub_efi_locate_protocol(&guid, NULL);
+
+  if (!shim_lock)
+    return 1;
+
+  if (shim_lock->verify(data, size) == GRUB_EFI_SUCCESS)
+    return 1;
+
+  return 0;
+}
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-align"
+
+typedef void (*handover_func) (void *, grub_efi_system_table_t *, void *);
+
+grub_err_t
+grub_efi_linux_boot (void *kernel_addr, grub_off_t offset,
+		     void *kernel_params)
+{
+  handover_func hf;
+
+  hf = (handover_func)((char *)kernel_addr + offset);
+  hf (grub_efi_image_handle, grub_efi_system_table, kernel_params);
+
+  return GRUB_ERR_BUG;
+}
+
+#pragma GCC diagnostic pop
 
 grub_err_t
 grub_arch_efi_linux_load_image_header (grub_file_t file,
@@ -139,7 +187,8 @@ grub_arch_efi_linux_load_image_header (grub_file_t file,
 static grub_err_t
 finalize_params_linux (void)
 {
-  int node, retval;
+  grub_efi_loaded_image_t *loaded_image = NULL;
+  int node, retval, len;
 
   void *fdt;
 
@@ -174,89 +223,70 @@ finalize_params_linux (void)
   if (grub_fdt_install() != GRUB_ERR_NONE)
     goto failure;
 
+  grub_dprintf ("linux", "Installed/updated FDT configuration table @ %p\n",
+                fdt);
+
+  /* Convert command line to UCS-2 */
+  loaded_image = grub_efi_get_loaded_image (grub_efi_image_handle);
+  if (!loaded_image)
+    goto failure;
+
+  loaded_image->load_options_size = len =
+    (grub_strlen (linux_args) + 1) * sizeof (grub_efi_char16_t);
+  loaded_image->load_options =
+    grub_efi_allocate_any_pages (GRUB_EFI_BYTES_TO_PAGES (loaded_image->load_options_size));
+  if (!loaded_image->load_options)
+    return grub_error(GRUB_ERR_BAD_OS, "failed to create kernel parameters");
+
+  loaded_image->load_options_size =
+    2 * grub_utf8_to_utf16 (loaded_image->load_options, len,
+                           (grub_uint8_t *) linux_args, len, NULL);
+
   return GRUB_ERR_NONE;
 
 failure:
   grub_fdt_unload();
   return grub_error(GRUB_ERR_BAD_OS, "failed to install/update FDT");
 }
-#endif
+
+static void
+free_params (void)
+{
+  grub_efi_loaded_image_t *loaded_image = NULL;
+
+  loaded_image = grub_efi_get_loaded_image (grub_efi_image_handle);
+  if (loaded_image)
+    {
+      if (loaded_image->load_options)
+       grub_efi_free_pages ((grub_efi_physical_address_t)(grub_efi_uintn_t)loaded_image->load_options,
+                            GRUB_EFI_BYTES_TO_PAGES (loaded_image->load_options_size));
+      loaded_image->load_options = NULL;
+      loaded_image->load_options_size = 0;
+    }
+}
 
 grub_err_t
-grub_arch_efi_linux_boot_image (grub_addr_t addr, grub_size_t size, char *args)
+grub_arch_efi_linux_boot_image (grub_addr_t addr, char *args)
 {
-  grub_efi_memory_mapped_device_path_t *mempath;
-  grub_efi_handle_t image_handle;
-  grub_efi_boot_services_t *b;
-  grub_efi_status_t status;
-  grub_efi_loaded_image_t *loaded_image;
-  int len;
+  grub_err_t retval;
 
-  mempath = grub_malloc (2 * sizeof (grub_efi_memory_mapped_device_path_t));
-  if (!mempath)
+  retval = finalize_params_linux ();
+  if (retval != GRUB_ERR_NONE)
     return grub_errno;
-
-  mempath[0].header.type = GRUB_EFI_HARDWARE_DEVICE_PATH_TYPE;
-  mempath[0].header.subtype = GRUB_EFI_MEMORY_MAPPED_DEVICE_PATH_SUBTYPE;
-  mempath[0].header.length = grub_cpu_to_le16_compile_time (sizeof (*mempath));
-  mempath[0].memory_type = GRUB_EFI_LOADER_DATA;
-  mempath[0].start_address = addr;
-  mempath[0].end_address = addr + size;
-
-  mempath[1].header.type = GRUB_EFI_END_DEVICE_PATH_TYPE;
-  mempath[1].header.subtype = GRUB_EFI_END_ENTIRE_DEVICE_PATH_SUBTYPE;
-  mempath[1].header.length = sizeof (grub_efi_device_path_t);
-
-  b = grub_efi_system_table->boot_services;
-  status = b->load_image (0, grub_efi_image_handle,
-			  (grub_efi_device_path_t *) mempath,
-			  (void *) addr, size, &image_handle);
-  if (status != GRUB_EFI_SUCCESS)
-    return grub_error (GRUB_ERR_BAD_OS, "cannot load image");
 
   grub_dprintf ("linux", "linux command line: '%s'\n", args);
 
-  /* Convert command line to UCS-2 */
-  loaded_image = grub_efi_get_loaded_image (image_handle);
-  if (loaded_image == NULL)
-    {
-      grub_error (GRUB_ERR_BAD_FIRMWARE, "missing loaded_image proto");
-      goto unload;
-    }
-  loaded_image->load_options_size = len =
-    (grub_strlen (args) + 1) * sizeof (grub_efi_char16_t);
-  loaded_image->load_options =
-    grub_efi_allocate_any_pages (GRUB_EFI_BYTES_TO_PAGES (loaded_image->load_options_size));
-  if (!loaded_image->load_options)
-    return grub_errno;
+  retval = grub_efi_linux_boot ((char *)addr, handover_offset, (void *)addr);
 
-  loaded_image->load_options_size =
-    2 * grub_utf8_to_utf16 (loaded_image->load_options, len,
-			    (grub_uint8_t *) args, len, NULL);
-
-  grub_dprintf ("linux", "starting image %p\n", image_handle);
-  status = b->start_image (image_handle, 0, NULL);
-
-  /* When successful, not reached */
-  grub_error (GRUB_ERR_BAD_OS, "start_image() returned 0x%" PRIxGRUB_EFI_UINTN_T, status);
-  grub_efi_free_pages ((grub_addr_t) loaded_image->load_options,
-		       GRUB_EFI_BYTES_TO_PAGES (loaded_image->load_options_size));
-unload:
-  b->unload_image (image_handle);
-
-  return grub_errno;
+  /* Never reached... */
+  free_params();
+  return retval;
 }
 
 static grub_err_t
 grub_linux_boot (void)
 {
-#if !defined(__i386__) && !defined(__x86_64__)
-  if (finalize_params_linux () != GRUB_ERR_NONE)
-    return grub_errno;
-#endif
-
-  return grub_arch_efi_linux_boot_image ((grub_addr_t) kernel_addr,
-					 kernel_size, linux_args);
+  return (grub_arch_efi_linux_boot_image((grub_addr_t)kernel_addr, linux_args));
 }
 
 static grub_err_t
@@ -458,6 +488,7 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
 {
   grub_file_t file = 0;
   struct linux_arch_kernel_header lh;
+  struct grub_armxx_linux_pe_header *pe;
   grub_err_t err;
 
   grub_dl_ref (my_mod);
@@ -532,6 +563,15 @@ fallback:
     }
 
   grub_dprintf ("linux", "kernel @ %p\n", kernel_addr);
+
+  if (!grub_linuxefi_secure_validate (kernel_addr, kernel_size))
+    {
+      grub_error (GRUB_ERR_INVALID_COMMAND, N_("%s has invalid signature"), argv[0]);
+      goto fail;
+    }
+
+  pe = (void *)((unsigned long)kernel_addr + lh.hdr_offset);
+  handover_offset = pe->opt.entry_addr;
 
   cmdline_size = grub_loader_cmdline_size (argc, argv) + sizeof (LINUX_IMAGE);
   linux_args = grub_malloc (cmdline_size);
