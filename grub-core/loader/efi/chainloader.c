@@ -33,6 +33,7 @@
 #include <grub/efi/efi.h>
 #include <grub/efi/disk.h>
 #include <grub/efi/pe32.h>
+#include <grub/efi/sb.h>
 #include <grub/efi/memory.h>
 #include <grub/command.h>
 #include <grub/i18n.h>
