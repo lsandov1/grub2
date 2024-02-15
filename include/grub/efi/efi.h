@@ -188,8 +188,6 @@ extern void (*EXPORT_VAR(grub_efi_net_config)) (grub_efi_handle_t hnd,
 void *
 EXPORT_FUNC (grub_efi_find_configuration_table) (const grub_guid_t *target_guid);
 
-int
-EXPORT_FUNC(grub_linuxefi_secure_validate) (void *data, grub_uint32_t size);
 grub_err_t
 EXPORT_FUNC(grub_efi_linux_boot) (void *kernel_address, grub_off_t offset,
 				  void *kernel_param);
