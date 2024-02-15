@@ -18,6 +18,7 @@
 
 #include <grub/charset.h>
 #include <grub/command.h>
+#include <grub/cache.h>
 #include <grub/err.h>
 #include <grub/file.h>
 #include <grub/fdt.h>
@@ -118,6 +119,10 @@ grub_efi_linux_boot (void *kernel_addr, grub_off_t handover_offset,
 
   grub_dprintf ("linux", "kernel_addr: %p handover_offset: %p params: %p\n",
 		kernel_addr, (void *)(grub_efi_uintn_t)handover_offset, kernel_params);
+
+  /* Invalidate the instruction cache */
+  grub_arch_sync_caches((void *)kernel_addr, kernel_size);
+
   hf = (handover_func)((char *)kernel_addr + handover_offset + offset);
   hf (grub_efi_image_handle, grub_efi_system_table, kernel_params);
 
