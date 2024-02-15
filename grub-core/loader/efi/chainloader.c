@@ -904,7 +904,6 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
   grub_efi_uintn_t pages = 0;
   grub_efi_char16_t *cmdline = NULL;
   grub_efi_handle_t image_handle = NULL;
-  int rc;
 
   if (argc == 0)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
@@ -1073,9 +1072,7 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
       orig_dev = 0;
     }
 
-  rc = grub_linuxefi_secure_validate((void *)(unsigned long)address, fsize);
-  grub_dprintf ("chain", "linuxefi_secure_validate: %d\n", rc);
-  if (rc > 0)
+  if (grub_efi_get_secureboot () == GRUB_EFI_SECUREBOOT_MODE_ENABLED)
     {
       grub_file_close (file);
       grub_device_close (dev);
@@ -1084,7 +1081,7 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
       return 0;
     }
 
-  else if (rc == 0)
+  else
     {
       grub_load_and_start_image(boot_image);
       grub_file_close (file);
@@ -1092,7 +1089,6 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
       grub_loader_set (grub_chainloader_boot, grub_chainloader_unload, 0);
       return 0;
     }
-  // -1 fall-through to fail
 
  fail:
   if (orig_dev)
