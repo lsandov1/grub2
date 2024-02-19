@@ -44,6 +44,7 @@ struct grub_arm_linux_pe_header
   struct grub_pe32_optional_header opt;
 };
 # define grub_armxx_linux_pe_header grub_arm_linux_pe_header
+# define GRUB_PE32_PEXX_MAGIC GRUB_PE32_PE32_MAGIC
 #endif
 
 #if defined(__aarch64__)
@@ -54,6 +55,7 @@ struct grub_arm64_linux_pe_header
   struct grub_pe64_optional_header opt;
 };
 # define grub_armxx_linux_pe_header grub_arm64_linux_pe_header
+# define GRUB_PE32_PEXX_MAGIC GRUB_PE32_PE64_MAGIC
 #endif
 
 #define GRUB_EFI_GRUB_VARIABLE_GUID \
