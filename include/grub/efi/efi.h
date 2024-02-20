@@ -25,6 +25,8 @@
 #include <grub/efi/api.h>
 #include <grub/efi/pe32.h>
 
+#define GRUB_MOK_POLICY_NX_REQUIRED   0x1
+
 #define GRUB_LINUX_ARM_MAGIC_SIGNATURE 0x016f2818
 
 struct linux_arch_kernel_header {
@@ -189,8 +191,21 @@ void *
 EXPORT_FUNC (grub_efi_find_configuration_table) (const grub_guid_t *target_guid);
 
 grub_err_t
-EXPORT_FUNC(grub_efi_linux_boot) (void *kernel_address, grub_off_t offset,
-				  void *kernel_param);
+EXPORT_FUNC(grub_efi_linux_boot) (grub_addr_t kernel_address,
+				  grub_size_t kernel_size,
+				  grub_off_t handover_offset,
+				  void *kernel_param, int nx_enabled);
+
+grub_err_t
+EXPORT_FUNC(grub_efi_check_nx_image_support) (grub_addr_t kernel_addr,
+					      grub_size_t kernel_size,
+					      int *nx_supported);
+
+grub_err_t
+EXPORT_FUNC(grub_efi_check_nx_required) (int *nx_required);
+
+extern grub_addr_t EXPORT_VAR(grub_stack_addr);
+extern grub_size_t EXPORT_VAR(grub_stack_size);
 
 #if defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__loongarch__)
 void *EXPORT_FUNC(grub_efi_get_firmware_fdt)(void);
@@ -199,7 +214,8 @@ grub_err_t EXPORT_FUNC(grub_efi_get_ram_base)(grub_addr_t *);
 #include <grub/file.h>
 grub_err_t grub_arch_efi_linux_load_image_header(grub_file_t file,
                                                 struct linux_arch_kernel_header *lh);
-grub_err_t grub_arch_efi_linux_boot_image(grub_addr_t addr, char *args);
+grub_err_t grub_arch_efi_linux_boot_image(grub_addr_t addr, grub_size_t size,
+					  char *args, int nx_enabled);
 
 grub_addr_t grub_efi_section_addr (const char *section);
 
