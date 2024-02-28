@@ -41,7 +41,7 @@ grub_file_getline (grub_file_t file)
   grub_size_t pos = 0;
   char *cmdline;
   int have_newline = 0;
-  grub_size_t max_len = 64;
+  grub_size_t max_len = 256;
 
   /* Initially locate some space.  */
   cmdline = grub_malloc (max_len);
