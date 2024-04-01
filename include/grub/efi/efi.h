@@ -75,6 +75,9 @@ EXPORT_FUNC(grub_efi_allocate_fixed) (grub_efi_physical_address_t address,
 				      grub_efi_uintn_t pages);
 void *
 EXPORT_FUNC(grub_efi_allocate_any_pages) (grub_efi_uintn_t pages);
+void *
+EXPORT_FUNC(grub_efi_allocate_pages_max) (grub_efi_physical_address_t max,
+					  grub_efi_uintn_t pages);
 void EXPORT_FUNC(grub_efi_free_pages) (grub_efi_physical_address_t address,
 				       grub_efi_uintn_t pages);
 grub_efi_uintn_t EXPORT_FUNC(grub_efi_find_mmap_size) (void);
@@ -152,6 +155,7 @@ EXPORT_FUNC (grub_efi_set_variable) (const char *var,
 grub_err_t
 EXPORT_FUNC (grub_efi_set_variable_to_string) (const char *name, const grub_guid_t *guid,
 					       const char *value, grub_efi_uint32_t attributes);
+grub_efi_boolean_t EXPORT_FUNC (grub_efi_secure_boot) (void);
 int
 EXPORT_FUNC (grub_efi_compare_device_paths) (const grub_efi_device_path_t *dp1,
 					     const grub_efi_device_path_t *dp2);
