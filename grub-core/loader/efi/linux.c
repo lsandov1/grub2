@@ -41,21 +41,14 @@ GRUB_MOD_LICENSE ("GPLv3+");
 static grub_dl_t my_mod;
 static int loaded;
 
-static void *kernel_mem;
 static void *kernel_addr;
 static grub_uint64_t kernel_size;
 
-static char *linux_cmdline;
 static char *linux_args;
 static grub_uint32_t cmdline_size;
 
-static grub_uint8_t *initrd_mem;
 static grub_addr_t initrd_start;
 static grub_addr_t initrd_end;
-
-static grub_uint32_t handover_offset;
-
-struct linux_kernel_params *params;
 
 static struct grub_linux_initrd_context initrd_ctx = {0, 0, 0};
 static grub_efi_handle_t initrd_lf2_handle = NULL;
@@ -108,7 +101,7 @@ typedef struct grub_efi_shim_lock grub_efi_shim_lock_t;
 grub_efi_boolean_t
 grub_linuxefi_secure_validate (void *data, grub_uint32_t size)
 {
-  grub_efi_guid_t guid = SHIM_LOCK_GUID;
+  grub_guid_t guid = SHIM_LOCK_GUID;
   grub_efi_shim_lock_t *shim_lock;
 
   shim_lock = grub_efi_locate_protocol(&guid, NULL);
@@ -128,12 +121,12 @@ grub_linuxefi_secure_validate (void *data, grub_uint32_t size)
 typedef void (*handover_func) (void *, grub_efi_system_table_t *, void *);
 
 grub_err_t
-grub_efi_linux_boot (void *kernel_addr, grub_off_t offset,
+grub_efi_linux_boot (void *kernel_address, grub_off_t offset,
 		     void *kernel_params)
 {
   handover_func hf;
 
-  hf = (handover_func)((char *)kernel_addr + offset);
+  hf = (handover_func)((char *)kernel_address + offset);
   hf (grub_efi_image_handle, grub_efi_system_table, kernel_params);
 
   return GRUB_ERR_BUG;
