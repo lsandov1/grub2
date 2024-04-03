@@ -33,6 +33,7 @@
 #include <grub/efi/efi.h>
 #include <grub/efi/disk.h>
 #include <grub/efi/pe32.h>
+#include <grub/efi/sb.h>
 #include <grub/efi/linux.h>
 #include <grub/efi/memory.h>
 #include <grub/command.h>
@@ -47,19 +48,24 @@ GRUB_MOD_LICENSE ("GPLv3+");
 
 static grub_dl_t my_mod;
 
+static grub_efi_physical_address_t address;
+static grub_efi_uintn_t pages;
 static grub_ssize_t fsize;
+static grub_efi_device_path_t *file_path;
+static grub_efi_handle_t image_handle;
+static grub_efi_char16_t *cmdline;
 static grub_ssize_t cmdline_len;
 static grub_efi_handle_t dev_handle;
 
-static grub_efi_status_t (*entry_point) (grub_efi_handle_t image_handle, grub_efi_system_table_t *system_table);
+static grub_efi_status_t (__grub_efi_api *entry_point) (grub_efi_handle_t image_handle, grub_efi_system_table_t *system_table);
 
 static grub_err_t
 grub_chainloader_unload (void *context)
 {
-  grub_efi_handle_t image_handle = (grub_efi_handle_t) context;
   grub_efi_loaded_image_t *loaded_image;
   grub_efi_boot_services_t *b;
 
+  image_handle = (grub_efi_handle_t) context;
   loaded_image = grub_efi_get_loaded_image (image_handle);
   if (loaded_image != NULL)
     grub_free (loaded_image->load_options);
@@ -74,12 +80,12 @@ grub_chainloader_unload (void *context)
 static grub_err_t
 grub_chainloader_boot (void *context)
 {
-  grub_efi_handle_t image_handle = (grub_efi_handle_t) context;
   grub_efi_boot_services_t *b;
   grub_efi_status_t status;
   grub_efi_uintn_t exit_data_size;
   grub_efi_char16_t *exit_data = NULL;
 
+  image_handle = (grub_efi_handle_t) context;
   b = grub_efi_system_table->boot_services;
   status = b->start_image (image_handle, &exit_data_size, &exit_data);
   if (status != GRUB_EFI_SUCCESS)
@@ -144,7 +150,7 @@ make_file_path (grub_efi_device_path_t *dp, const char *filename)
   char *dir_start;
   char *dir_end;
   grub_size_t size;
-  grub_efi_device_path_t *d, *file_path;
+  grub_efi_device_path_t *d;
 
   dir_start = grub_strchr (filename, ')');
   if (! dir_start)
@@ -264,7 +270,7 @@ static grub_efi_boolean_t
 read_header (void *data, grub_efi_uint32_t size,
 	     pe_coff_loader_image_context_t *context)
 {
-  grub_efi_guid_t guid = SHIM_LOCK_GUID;
+  grub_guid_t guid = SHIM_LOCK_GUID;
   grub_efi_shim_lock_t *shim_lock;
   grub_efi_status_t status;
 
@@ -577,8 +583,8 @@ handle_image (void *data, grub_efi_uint32_t datasize)
   grub_dprintf ("chain", "image size is %08"PRIxGRUB_UINT64_T", datasize is %08x\n",
 	       context.image_size, datasize);
 
-  efi_status = efi_call_3 (b->allocate_pool, GRUB_EFI_LOADER_DATA,
-			   buffer_size, &buffer);
+  efi_status = b->allocate_pool (GRUB_EFI_LOADER_DATA,
+                                 buffer_size, (void**)&buffer);
 
   if (efi_status != GRUB_EFI_SUCCESS)
     {
@@ -805,19 +811,19 @@ handle_image (void *data, grub_efi_uint32_t datasize)
     }
 
   grub_dprintf ("chain", "booting via entry point\n");
-  efi_status = efi_call_2 (entry_point, grub_efi_image_handle,
-			   grub_efi_system_table);
+  efi_status = entry_point (grub_efi_image_handle,
+                            grub_efi_system_table);
 
   grub_dprintf ("chain", "entry_point returned %ld\n", efi_status);
   grub_memcpy (li, &li_bak, sizeof (grub_efi_loaded_image_t));
-  efi_status = efi_call_1 (b->free_pool, buffer);
+  efi_status = b->free_pool (buffer);
 
   return 1;
 
 error_exit:
   grub_dprintf ("chain", "error_exit: grub_errno: %d\n", grub_errno);
   if (buffer)
-      efi_call_1 (b->free_pool, buffer);
+    b->free_pool (buffer);
 
   return 0;
 }
@@ -828,7 +834,7 @@ grub_secureboot_chainloader_unload (void)
   grub_efi_boot_services_t *b;
 
   b = grub_efi_system_table->boot_services;
-  efi_call_2 (b->free_pages, address, pages);
+  b->free_pages (address, pages);
   grub_free (file_path);
   grub_free (cmdline);
   cmdline = 0;
@@ -848,8 +854,8 @@ grub_load_and_start_image(void *boot_image)
 
   b = grub_efi_system_table->boot_services;
 
-  status = efi_call_6 (b->load_image, 0, grub_efi_image_handle, file_path,
-		       boot_image, fsize, &image_handle);
+  status = b->load_image (0, grub_efi_image_handle, file_path,
+                          boot_image, fsize, &image_handle);
   if (status != GRUB_EFI_SUCCESS)
     {
       if (status == GRUB_EFI_OUT_OF_RESOURCES)
@@ -901,15 +907,16 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
   grub_efi_status_t status;
   grub_efi_boot_services_t *b;
   grub_device_t dev = 0;
-  grub_efi_device_path_t *dp = NULL, *file_path = NULL;
+  grub_efi_device_path_t *dp = NULL;
   char *filename;
   void *boot_image = 0;
   int rc;
-  grub_efi_physical_address_t address = 0;
-  grub_efi_uintn_t pages = 0;
-  grub_efi_char16_t *cmdline = NULL;
-  grub_efi_handle_t image_handle = NULL;
 
+  file_path = NULL;
+  address = 0;
+  pages = 0;
+  cmdline = NULL;
+  image_handle = NULL;
   dev_handle = 0;
 
   if (argc == 0)
@@ -1077,7 +1084,7 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
       grub_load_and_start_image(boot_image);
       grub_file_close (file);
       grub_device_close (dev);
-      grub_loader_set (grub_chainloader_boot, grub_chainloader_unload, 0);
+      grub_loader_set_ex (grub_chainloader_boot, grub_chainloader_unload, image_handle, 0);
 
       return 0;
     }
