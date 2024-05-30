@@ -357,6 +357,7 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
   grub_file_t file = 0;
   grub_err_t err;
   grub_off_t filelen;
+  grub_off_t filereadlen;
   grub_uint32_t align;
   grub_uint32_t code_size;
   void *kernel = NULL;
@@ -382,8 +383,10 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
       goto fail;
     }
 
-  if (grub_file_read (file, kernel, filelen) < (grub_ssize_t)filelen)
-    {
+  if ((filereadlen = grub_file_read (file, kernel, filelen)) < (grub_ssize_t)filelen)
+     {
+      grub_dprintf ("linux", "filelen     : %lld\n", (long long) filelen);
+      grub_dprintf ("linux", "filereadlen : %lld\n", (long long) filereadlen);
       grub_error (GRUB_ERR_FILE_READ_ERROR, N_("Can't read kernel %s"),
 		  argv[0]);
       goto fail;
