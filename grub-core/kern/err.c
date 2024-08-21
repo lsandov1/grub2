@@ -53,6 +53,8 @@ grub_error (grub_err_t n, const char *file, const int line, const char *fmt, ...
   grub_vsnprintf (grub_errmsg + m, sizeof (grub_errmsg) - m, _(fmt), ap);
   va_end (ap);
 
+  grub_printf ("%s", grub_errmsg);
+
   return n;
 }
 
