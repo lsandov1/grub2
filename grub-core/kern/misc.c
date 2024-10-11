@@ -206,7 +206,7 @@ grub_debug_enabled (const char * condition)
   grub_size_t clen;
   int ret = 0;
 
-  debug = grub_env_get ("debug");
+  debug = "all";
   if (!debug)
     return 0;
 
