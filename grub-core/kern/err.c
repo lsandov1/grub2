@@ -119,6 +119,8 @@ grub_print_error (void)
       if (grub_errno != GRUB_ERR_NONE)
 	{
 	  grub_err_printf (_("error: %s.\n"), grub_errmsg);
+    grub_printf ("error:%s. \n", grub_errmsg);
+
 	  grub_err_printed_errors++;
 	}
     }
