@@ -179,11 +179,10 @@ grub_debug_is_enabled (void)
 int
 grub_debug_enabled (const char * condition)
 {
-  const char *debug;
+  const char *debug="load_config";
   char *negcond;
   int negated = 0;
 
-  debug = grub_env_get ("debug");
   if (!debug)
     return 0;
 

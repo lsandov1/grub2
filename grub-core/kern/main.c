@@ -75,9 +75,15 @@ static void
 grub_load_config (void)
 {
   struct grub_module_header *header;
+  char *efi_prefix = NULL;
+  grub_dprintf ("load_config", "grub_load_config: before going through modules.\n");
   FOR_MODULES (header)
   {
     /* Not an embedded config, skip.  */
+    grub_dprintf ("load_config", "grub_load_config: header type %d\n", (unsigned int) header->type);
+    grub_dprintf ("load_config", "grub_load_config: header size %d\n", (unsigned int) header->size);
+    efi_prefix = (char *) header + sizeof (struct grub_module_header);
+    grub_dprintf ("load_config", "prefix: %s\n", efi_prefix);
     if (header->type != OBJ_TYPE_CONFIG)
       continue;
 
@@ -93,6 +99,7 @@ grub_load_config (void)
     load_config[header->size - sizeof (struct grub_module_header)] = 0;
     break;
   }
+  grub_dprintf ("load_config", "grub_load_config: end of grub_load_config\n");
 }
 
 /* Write hook for the environment variables of root. Remove surrounding
@@ -342,10 +349,11 @@ grub_main (void)
 
   /* Init verifiers API. */
   grub_verifiers_init ();
+  grub_boot_time ("After verifiers_init.");
 
   grub_load_config ();
 
-  grub_boot_time ("Before loading embedded modules.");
+  grub_boot_time ("After load_config; before loading embedded modules.");
 
   /* Load pre-loaded modules and free the space.  */
   grub_register_exported_symbols ();
