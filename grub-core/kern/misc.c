@@ -181,6 +181,9 @@ grub_debug_enabled (const char * condition)
 {
   const char *debug;
 
+  /* hardcode debugging */
+  return 1;
+
   debug = grub_env_get ("debug");
   if (!debug)
     return 0;
