@@ -327,11 +327,14 @@ reclaim_module_space (void)
 void __attribute__ ((noreturn))
 grub_main (void)
 {
+  grub_printf ("%s:%s:%d\n", GRUB_FILE, __func__,  __LINE__);
   /* First of all, initialize the machine.  */
   grub_machine_init ();
 
+  grub_printf ("%s:%s:%d\n", GRUB_FILE, __func__,  __LINE__);
   grub_boot_time ("After machine init.");
 
+  grub_printf ("%s:%s:%d\n", GRUB_FILE, __func__,  __LINE__);
   /* This breaks flicker-free boot on EFI systems, so disable it there. */
 #ifndef GRUB_MACHINE_EFI
   /* Hello.  */
@@ -340,13 +343,17 @@ grub_main (void)
   grub_setcolorstate (GRUB_TERM_COLOR_STANDARD);
 #endif
 
+  grub_printf ("%s:%s:%d\n", GRUB_FILE, __func__,  __LINE__);
   /* Init verifiers API. */
   grub_verifiers_init ();
 
+  grub_printf ("%s:%s:%d\n", GRUB_FILE, __func__,  __LINE__);
   grub_load_config ();
 
+  grub_printf ("%s:%s:%d\n", GRUB_FILE, __func__,  __LINE__);
   grub_boot_time ("Before loading embedded modules.");
 
+  grub_printf ("%s:%s:%d\n", GRUB_FILE, __func__,  __LINE__);
   /* Load pre-loaded modules and free the space.  */
   grub_register_exported_symbols ();
 #ifdef GRUB_LINKER_HAVE_INIT
@@ -354,6 +361,7 @@ grub_main (void)
 #endif
   grub_load_modules ();
 
+  grub_printf ("%s:%s:%d\n", GRUB_FILE, __func__,  __LINE__);
   grub_boot_time ("After loading embedded modules.");
 
   /* It is better to set the root device as soon as possible,
@@ -362,20 +370,27 @@ grub_main (void)
   grub_env_export ("root");
   grub_env_export ("prefix");
 
+  grub_printf ("%s:%s:%d\n", GRUB_FILE, __func__,  __LINE__);
   /* Reclaim space used for modules.  */
   reclaim_module_space ();
 
+  grub_printf ("%s:%s:%d\n", GRUB_FILE, __func__,  __LINE__);
   grub_boot_time ("After reclaiming module space.");
 
+  grub_printf ("%s:%s:%d\n", GRUB_FILE, __func__,  __LINE__);
   grub_register_core_commands ();
 
+  grub_printf ("%s:%s:%d\n", GRUB_FILE, __func__,  __LINE__);
   grub_boot_time ("Before execution of embedded config.");
 
+  grub_printf ("%s:%s:%d\n", GRUB_FILE, __func__,  __LINE__);
   if (load_config)
     grub_parser_execute (load_config);
 
+  grub_printf ("%s:%s:%d\n", GRUB_FILE, __func__,  __LINE__);
   grub_boot_time ("After execution of embedded config. Attempt to go to normal mode");
 
+  grub_printf ("%s:%s:%d\n", GRUB_FILE, __func__,  __LINE__);
   grub_load_normal_mode ();
   grub_rescue_run ();
 }

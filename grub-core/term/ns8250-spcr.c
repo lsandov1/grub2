@@ -76,9 +76,12 @@ grub_ns8250_spcr_init (void)
         break;
     };
 
+  grub_dprintf ("serial","spcr->base_addr.addr %p\n",spcr->base_addr.addr);
+
   /* if base address is 0, it means redirection is disable, so return it */
   if (spcr->base_addr.addr == 0)
     return NULL;
+  grub_dprintf ("serial","\n");
 
   switch (spcr->base_addr.space_id)
     {

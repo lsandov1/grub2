@@ -144,7 +144,7 @@ struct grub_serial_port *
 grub_serial_find (const char *name)
 {
   struct grub_serial_port *port;
-
+  grub_dprintf ("serial","\n");
   /*
    * First look for an exact match by name, this will take care of
    * things like "com0" which have already been created and that
@@ -153,7 +153,7 @@ grub_serial_find (const char *name)
   FOR_SERIAL_PORTS (port)
     if (grub_strcmp (port->name, name) == 0)
       return port;
-
+ grub_dprintf ("serial","\n");
 #if (defined(__mips__) || defined (__i386__) || defined (__x86_64__)) && !defined(GRUB_MACHINE_EMU) && !defined(GRUB_MACHINE_ARC)
   if (grub_strncmp (name, "port", sizeof ("port") - 1) == 0
       && grub_isxdigit (name [sizeof ("port") - 1]))
@@ -163,6 +163,7 @@ grub_serial_find (const char *name)
       if (port != NULL)
         return port;
     }
+ grub_dprintf ("serial","\n");
   if (grub_strncmp (name, "mmio,", sizeof ("mmio,") - 1) == 0
       && grub_isxdigit (name [sizeof ("mmio,") - 1]))
     {
@@ -209,21 +210,24 @@ grub_serial_find (const char *name)
       if (port != NULL)
         return port;
     }
-
+ grub_dprintf ("serial","\n");
 #if (defined(__i386__) || defined(__x86_64__)) && !defined(GRUB_MACHINE_IEEE1275) && !defined(GRUB_MACHINE_QEMU)
   if (grub_strcmp (name, "auto") == 0)
     {
+     grub_dprintf ("serial","\n");
       /* Look for an SPCR if any. If not, default to com0. */
       port = grub_ns8250_spcr_init ();
       if (port != NULL)
         return port;
+     grub_dprintf ("serial","\n");
       FOR_SERIAL_PORTS (port)
         if (grub_strcmp (port->name, "com0") == 0)
           return port;
+     grub_dprintf ("serial","\n");
     }
 #endif
 #endif
-
+ grub_dprintf ("serial","\n");
 #ifdef GRUB_MACHINE_IEEE1275
   if (grub_strncmp (name, "ieee1275/", sizeof ("ieee1275/") - 1) == 0)
     {
@@ -245,14 +249,14 @@ grub_cmd_serial (grub_extcmd_context_t ctxt, int argc, char **args)
   struct grub_serial_port *port;
   struct grub_serial_config config;
   grub_err_t err;
-
+ grub_dprintf ("serial","\n");
   if (state[OPTION_UNIT].set)
     {
       grub_snprintf (pname, sizeof (pname), "com%ld",
 		     grub_strtoul (state[0].arg, 0, 0));
       name = pname;
     }
-
+ grub_dprintf ("serial","\n");
   if (state[OPTION_PORT].set)
     {
       if (grub_strncmp (state[OPTION_PORT].arg, "mmio,", sizeof ("mmio,") - 1) == 0 ||
@@ -266,19 +270,20 @@ grub_cmd_serial (grub_extcmd_context_t ctxt, int argc, char **args)
 		       grub_strtoul (state[1].arg, 0, 0));
       name = pname;
     }
-
+ grub_dprintf ("serial","\n");
   if (argc >= 1)
     name = args[0];
-
+ grub_dprintf ("serial","\n");
   if (!name)
     name = "auto";
-
+  grub_dprintf ("serial","\n");
   port = grub_serial_find (name);
+ grub_dprintf ("serial","\n");
   if (!port)
     return grub_error (GRUB_ERR_BAD_ARGUMENT,
 		       N_("serial port `%s' isn't found"),
 		       name);
-
+ grub_dprintf ("serial","\n");
   config = port->config;
 
   if (state[OPTION_SPEED].set) {
@@ -287,7 +292,7 @@ grub_cmd_serial (grub_extcmd_context_t ctxt, int argc, char **args)
       return grub_error (GRUB_ERR_BAD_ARGUMENT,
 			 N_("unsupported serial port parity"));
   }
-
+ grub_dprintf ("serial","\n");
   if (state[OPTION_WORD].set)
     config.word_len = grub_strtoul (state[OPTION_WORD].arg, 0, 0);
 
@@ -303,7 +308,7 @@ grub_cmd_serial (grub_extcmd_context_t ctxt, int argc, char **args)
 	return grub_error (GRUB_ERR_BAD_ARGUMENT,
 			   N_("unsupported serial port parity"));
     }
-
+ grub_dprintf ("serial","\n");
   if (state[OPTION_RTSCTS].set)
     {
       if (grub_strcmp (state[OPTION_RTSCTS].arg, "on") == 0)
@@ -314,7 +319,7 @@ grub_cmd_serial (grub_extcmd_context_t ctxt, int argc, char **args)
 	return grub_error (GRUB_ERR_BAD_ARGUMENT,
 			   N_("unsupported serial port flow control"));
     }
-
+ grub_dprintf ("serial","\n");
   if (state[OPTION_STOP].set)
     {
       if (! grub_strcmp (state[OPTION_STOP].arg, "1"))
@@ -327,7 +332,7 @@ grub_cmd_serial (grub_extcmd_context_t ctxt, int argc, char **args)
 	return grub_error (GRUB_ERR_BAD_ARGUMENT,
 			   N_("unsupported serial port stop bits number"));
     }
-
+ grub_dprintf ("serial","\n");
   if (state[OPTION_BASE_CLOCK].set)
     {
       const char *ptr;
@@ -339,7 +344,7 @@ grub_cmd_serial (grub_extcmd_context_t ctxt, int argc, char **args)
       if (ptr && (*ptr == 'k' || *ptr == 'K'))
 	config.base_clock *= 1000;
     }
-
+ grub_dprintf ("serial","\n");
   if (config.speed == 0)
     config.speed = 9600;
 
@@ -347,18 +352,21 @@ grub_cmd_serial (grub_extcmd_context_t ctxt, int argc, char **args)
   err = port->driver->configure (port, &config);
   if (err)
     return err;
+ grub_dprintf ("serial","\n");
 #if !defined (GRUB_MACHINE_EMU) && !defined(GRUB_MACHINE_ARC) && (defined(__mips__) || defined (__i386__) || defined (__x86_64__))
 
   /* Compatibility kludge.  */
   if (port->driver == &grub_ns8250_driver)
     {
+     grub_dprintf ("serial","\n");
       if (!registered)
 	{
 	  grub_terminfo_output_register (&grub_serial_term_output, "vt100");
-
+   grub_dprintf ("serial","\n");
 	  grub_term_register_input ("serial", &grub_serial_term_input);
 	  grub_term_register_output ("serial", &grub_serial_term_output);
 	}
+     grub_dprintf ("serial","\n");
       grub_serial_terminfo_output.port = port;
       grub_serial_terminfo_input.port = port;
       registered = 1;
