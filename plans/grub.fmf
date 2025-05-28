@@ -1,0 +1,23 @@
+provision:
+  how: local
+
+prepare+:
+  - how: install
+    package:
+    - autoconf
+    - automake
+    - autopoint
+    - bison
+    - flex
+    - gawk
+    - gettext
+    - git
+    - libtool
+    - patch
+    - python
+
+discover:
+    how: fmf
+
+execute:
+    how: tmt
