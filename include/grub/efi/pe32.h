@@ -46,6 +46,8 @@
 
 #define GRUB_PE32_MSDOS_STUB_SIZE	0x80
 
+#define GRUB_PE32_MAGIC			0x5a4d
+
 #define GRUB_DOS_MAGIC			0x5a4d
 
 struct grub_dos_header

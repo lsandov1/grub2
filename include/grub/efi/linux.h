@@ -25,17 +25,6 @@
 #define GRUB_MOK_POLICY_NX_REQUIRED   0x1
 
 grub_err_t
-EXPORT_FUNC(grub_efi_linux_boot) (grub_addr_t kernel_address,
-                                  grub_size_t kernel_size,
-                                  grub_off_t handover_offset,
-                                  void *kernel_param, int nx_enabled);
-
-grub_err_t
-EXPORT_FUNC(grub_efi_check_nx_image_support) (grub_addr_t kernel_addr,
-                                              grub_size_t kernel_size,
-                                              int *nx_supported);
-
-grub_err_t
 EXPORT_FUNC(grub_efi_check_nx_required) (int *nx_required);
 
 #endif /* ! GRUB_EFI_LINUX_HEADER */
