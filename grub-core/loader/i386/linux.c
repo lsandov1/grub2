@@ -413,6 +413,8 @@ grub_linux_boot (void)
   grub_size_t mmap_size;
   grub_size_t cl_offset;
 
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
+
 #ifdef GRUB_MACHINE_IEEE1275
   {
     const char *bootpath;
@@ -649,6 +651,7 @@ grub_linux_boot (void)
 static grub_err_t
 grub_linux_unload (void)
 {
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
   grub_dl_unref (my_mod);
   loaded = 0;
   grub_free (linux_cmdline);
@@ -672,6 +675,7 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
   grub_uint64_t preferred_address = GRUB_LINUX_BZIMAGE_ADDR;
   grub_uint8_t *kernel = NULL;
 
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
   grub_dl_ref (my_mod);
 
   if (argc == 0)
@@ -1070,6 +1074,8 @@ grub_cmd_initrd (grub_command_t cmd __attribute__ ((unused)),
   grub_addr_t addr;
   grub_err_t err;
   struct grub_linux_initrd_context initrd_ctx = { 0, 0, 0 };
+
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
 
   if (argc == 0)
     {

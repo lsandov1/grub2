@@ -103,6 +103,7 @@ grub_efi_check_nx_image_support (grub_addr_t k_add,
 				 grub_size_t k_size,
 				 int *nx_supported)
 {
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
   struct grub_dos_header *doshdr;
   grub_size_t sz = sizeof (*doshdr);
 
@@ -177,6 +178,7 @@ grub_efi_check_nx_required (int *nx_required)
   char *mok_policy = NULL;
   grub_uint32_t mok_policy_attrs = 0;
 
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
   status = grub_efi_get_variable_with_attributes ("MokPolicy", &guid,
 						  &mok_policy_sz,
 						  (void **)&mok_policy,
@@ -218,6 +220,7 @@ grub_efi_linux_boot (grub_addr_t k_address, grub_size_t k_size,
   grub_uint64_t attrs;
   int nx_required = 0;
 
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
 #ifdef __x86_64__
   offset = 512;
 #endif
@@ -293,6 +296,7 @@ grub_err_t
 grub_arch_efi_linux_load_image_header (grub_file_t file,
                                       struct linux_arch_kernel_header * lh)
 {
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
   grub_file_seek (file, 0);
   if (grub_file_read (file, lh, sizeof (*lh)) < (grub_ssize_t) sizeof (*lh))
     return grub_error(GRUB_ERR_FILE_READ_ERROR, "failed to read Linux image header");
@@ -345,6 +349,8 @@ finalize_params_linux (void)
   int node, retval, len;
   grub_err_t err = GRUB_ERR_NONE;
   void *fdt;
+
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
 
   /* Set initrd info */
   if (initrd_start && initrd_end > initrd_start)
@@ -432,6 +438,7 @@ free_params (void)
 {
   grub_efi_loaded_image_t *loaded_image = NULL;
 
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
   loaded_image = grub_efi_get_loaded_image (grub_efi_image_handle);
   if (loaded_image)
     {
@@ -449,6 +456,7 @@ grub_arch_efi_linux_boot_image (grub_addr_t addr, grub_size_t size, char *args,
 {
   grub_err_t retval;
 
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
   grub_dprintf ("linux", "linux command line: '%s'\n", args);
 
   retval = grub_efi_linux_boot (addr, size, handover_offset,
@@ -462,6 +470,7 @@ grub_arch_efi_linux_boot_image (grub_addr_t addr, grub_size_t size, char *args,
 static grub_err_t
 grub_linux_boot (void)
 {
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
 #if !defined(__i386__) && !defined(__x86_64__)
   if (finalize_params_linux () != GRUB_ERR_NONE)
     return grub_errno;
@@ -476,6 +485,7 @@ grub_linux_boot (void)
 static grub_err_t
 grub_linux_unload (void)
 {
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
   grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
 
   grub_dl_unref (my_mod);
@@ -564,7 +574,7 @@ grub_efi_initrd_load_file2 (grub_efi_load_file2_t *this,
 {
   grub_efi_status_t status = GRUB_EFI_SUCCESS;
   grub_efi_uintn_t initrd_size;
-
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
   if (this != &initrd_lf2 || buffer_size == NULL)
     return GRUB_EFI_INVALID_PARAMETER;
 
@@ -599,7 +609,7 @@ grub_cmd_initrd (grub_command_t cmd __attribute__ ((unused)),
   void *__attribute__ ((unused)) initrd_mem = NULL;
   grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
   grub_efi_status_t status;
-
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
   if (argc == 0)
     {
       grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
@@ -726,6 +736,8 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
   grub_err_t err;
   int nx_supported = 1;
   int nx_required = 0;
+
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
 
   grub_dl_ref (my_mod);
 

@@ -165,6 +165,8 @@ grub_linuxefi_boot (void *data)
 {
   struct grub_linuxefi_context *context = (struct grub_linuxefi_context *) data;
 
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
+
   asm volatile ("cli");
 
   return grub_efi_linux_boot ((grub_addr_t)context->kernel_mem,
@@ -179,6 +181,8 @@ grub_linuxefi_unload (void *data)
 {
   struct grub_linuxefi_context *context = (struct grub_linuxefi_context *) data;
   struct linux_kernel_params *params = context->params;
+
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
 
   grub_dl_unref (my_mod);
 
@@ -246,6 +250,8 @@ grub_cmd_initrd (grub_command_t cmd, int argc, char *argv[])
   struct grub_linuxefi_context *context = (struct grub_linuxefi_context *) cmd->data;
   struct linux_kernel_params *params;
   void *initrd_mem = 0;
+
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
 
   if (argc == 0)
     {
@@ -342,6 +348,8 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
   int nx_supported = 1;
   struct grub_linuxefi_context *context = 0;
   grub_err_t err;
+
+  grub_dprintf ("linux-boot-sequence", "%s\n", __FUNCTION__);
 
   grub_dl_ref (my_mod);
 
@@ -556,6 +564,7 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
 
   grub_file_close (file);
   grub_free (kernel);
+  grub_dprintf ("linux-boot-sequence", "\n");
   return 0;
 
 fail:
