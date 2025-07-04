@@ -200,6 +200,59 @@ grub_efi_check_nx_required (int *nx_required)
   return GRUB_ERR_NONE;
 }
 
+/* taken from kern/acpi.c: Simple checksum by summing all bytes. Used by ACPI and SMBIOS. */
+grub_uint8_t
+grub_efi_byte_checksum (void *base, grub_size_t size)
+{
+  grub_uint8_t *ptr;
+  grub_uint8_t ret = 0;
+  for (ptr = (grub_uint8_t *) base; ptr < ((grub_uint8_t *) base) + size;
+       ptr++)
+    ret += *ptr;
+  return ret;
+}
+
+grub_uint32_t
+grub_efi_32bit_checksum (grub_uint8_t *base, grub_size_t size)
+{
+  grub_uint32_t checksum = 0;
+  grub_size_t i;
+
+  // Iterate through the data in 4-byte (32-bit) chunks
+  for (i = 0; i < size; i += 4) {
+    grub_uint32_t value = 0;
+    // Create a temporary 4-byte buffer to handle potential unaligned access
+    // and padding for the last chunk.
+    grub_uint8_t chunk_buffer[4] = {0, 0, 0, 0};
+    grub_size_t bytes_to_copy = 4;
+    
+    // Determine how many bytes are left in the current chunk
+    if (i + 4 > size) {
+      bytes_to_copy = size - i;
+    }
+
+    // Copy the current chunk into the buffer.
+    // If bytes_to_copy < 4, the remaining bytes in chunk_buffer will stay 0,
+    // effectively padding with zeros.
+    grub_memcpy(chunk_buffer, base + i, bytes_to_copy);
+
+    // Convert the 4-byte chunk from the buffer to a 32-bit unsigned integer.
+    // This assumes little-endian byte order, matching the Python example.
+    // If big-endian is required, the byte order for assembly would need to be reversed.
+    value = (grub_uint32_t)chunk_buffer[0] |
+      ((grub_uint32_t)chunk_buffer[1] << 8) |
+      ((grub_uint32_t)chunk_buffer[2] << 16) |
+      ((grub_uint32_t)chunk_buffer[3] << 24);
+
+    // Add the value to the checksum
+    checksum += value;
+
+    // Ensure the checksum remains within 32 bits (0 to 0xFFFFFFFF)
+    checksum &= 0xFFFFFFFF; // Bitwise AND with 0xFFFFFFFF to keep it 32-bit
+  }
+  return checksum;
+}
+
 typedef void (*handover_func) (void *, grub_efi_system_table_t *, void *);
 
 grub_err_t
@@ -218,10 +271,14 @@ grub_efi_linux_boot (grub_addr_t k_address, grub_size_t k_size,
   grub_uint64_t kernel_clear_attrs = stack_clear_attrs;
   grub_uint64_t attrs;
   int nx_required = 0;
+  grub_uint32_t checksum;
 
 #ifdef __x86_64__
   offset = 512;
 #endif
+
+  checksum = grub_efi_32bit_checksum((grub_uint8_t *)k_address, k_size);
+  grub_dprintf ("mem", "kernel %p size %d checksum BEFORE grub_update_mem_attrs %08X\n", (void *)k_address, k_size, checksum);
 
   /*
    * Since the EFI loader is not calling the LoadImage() and StartImage()
@@ -256,6 +313,9 @@ grub_efi_linux_boot (grub_addr_t k_address, grub_size_t k_size,
   grub_update_mem_attrs (k_address, k_size,
 			 kernel_set_attrs, kernel_clear_attrs);
 
+  checksum = grub_efi_32bit_checksum((grub_uint8_t *)k_address, k_size);
+  grub_dprintf ("mem", "kernel %p size %d checksum AFTER grub_update_mem_attrs %08X\n", (void *)k_address, k_size, checksum);
+
   grub_get_mem_attrs (k_address, 4096, &attrs);
   grub_dprintf ("nx", "permissions for 0x%"PRIxGRUB_ADDR" are %s%s%s\n",
 		(grub_addr_t)k_address,
@@ -282,12 +342,30 @@ grub_efi_linux_boot (grub_addr_t k_address, grub_size_t k_size,
   asm volatile ("cli");
 #endif
 
+  grub_dprintf("linux", "before invalidating the instruction cache \n");
   /* Invalidate the instruction cache */
   grub_arch_sync_caches((void *)kernel_addr, kernel_size);
+  grub_dprintf("linux", "after invalidating the instruction cache \n");
+
+  grub_dprintf ("linux", "kernel_address: %p handover_offset: %p offset: %d\n",
+		(void *)k_address, (void *)h_offset, offset);
+
+  checksum = grub_efi_32bit_checksum((grub_uint8_t *)k_address, k_size);
+  grub_dprintf ("mem", "kernel %p size %d checksum BEFORE handover function call %08X\n", (void *)k_address, k_size, checksum);
 
   hf = (handover_func)((char *)k_address + h_offset + offset);
+
+  grub_dprintf ("linux", "handover function hf: %p\n", (void *)hf);
+
+  grub_dprintf ("linux", "grub_efi_image_handle: %p grub_efi_system_table: %p k_params: %p\n",
+		(void *)grub_efi_image_handle, (void *)grub_efi_system_table, (void *)k_params);
+
+  grub_dprintf("linux", "bedore hf\n");
+
+
   hf (grub_efi_image_handle, grub_efi_system_table, k_params);
 
+  grub_dprintf("linux", "after hf\n");
   return GRUB_ERR_BUG;
 }
 

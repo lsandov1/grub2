@@ -146,6 +146,7 @@ kernel_alloc(kernel_alloc_purpose_t purpose,
 	  grub_update_mem_attrs ((grub_addr_t)addr, size,
 				 GRUB_MEM_ATTR_R|GRUB_MEM_ATTR_W,
 				 GRUB_MEM_ATTR_X);
+	  grub_memset (addr, 0, size);
 	}
     }
 
@@ -342,6 +343,7 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
   int nx_supported = 1;
   struct grub_linuxefi_context *context = 0;
   grub_err_t err;
+  grub_uint32_t checksum;
 
   grub_dl_ref (my_mod);
 
@@ -518,6 +520,7 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
   kernel_mem = kernel_alloc (KERNEL_MEM, kernel_size,
 			     GRUB_EFI_LOADER_CODE,
 			     N_("can't allocate kernel"));
+
   restore_addresses();
   if (!kernel_mem)
     goto fail;
@@ -527,8 +530,16 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
 		LOW_U32(kernel_mem));
   lh->code32_start = LOW_U32(kernel_mem);
 
-  grub_memcpy (kernel_mem, (char *)kernel + start, filelen - start);
+  grub_memcpy (kernel_mem, (char *)kernel + start, MIN(kernel_size, (filelen - start)));
 
+  checksum = grub_efi_32bit_checksum((grub_uint8_t *)kernel_mem, kernel_size);
+  grub_dprintf ("mem", "kernel %p kernel_size %d lh->init_size %d memcpy_size filelen %d - start %d = %d checksum AFTER memcpy %08X\n",
+		(void *)kernel_mem,
+		kernel_size,
+		lh->init_size,
+		filelen, start, filelen - start,
+		checksum);
+  
   lh->type_of_loader = 0x6;
   grub_dprintf ("linux", "setting lh->type_of_loader = 0x%02x\n",
 		lh->type_of_loader);
