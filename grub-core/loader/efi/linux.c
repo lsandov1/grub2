@@ -203,10 +203,11 @@ grub_efi_check_nx_required (int *nx_required)
 typedef void (*handover_func) (void *, grub_efi_system_table_t *, void *);
 
 grub_err_t
-grub_efi_linux_boot (grub_addr_t k_address, grub_size_t k_size,
+grub_efi_linux_boot (grub_addr_t k_address, grub_size_t k_size, grub_size_t k_start,
 		     grub_off_t h_offset, void *k_params,
 		     int nx_supported)
 {
+  grub_addr_t k_start_address = k_address + k_start;
   grub_efi_loaded_image_t *loaded_image = NULL;
   handover_func hf;
   int offset = 0;
@@ -218,6 +219,11 @@ grub_efi_linux_boot (grub_addr_t k_address, grub_size_t k_size,
   grub_uint64_t kernel_clear_attrs = stack_clear_attrs;
   grub_uint64_t attrs;
   int nx_required = 0;
+  struct grub_msdos_image_header *header;
+  struct grub_pe_image_header *pe_image_header;
+  struct grub_pe32_coff_header *coff_header;
+  struct grub_pe32_section_table *section, *sections;
+  grub_uint16_t i;
 
 #ifdef __x86_64__
   offset = 512;
@@ -251,17 +257,37 @@ grub_efi_linux_boot (grub_addr_t k_address, grub_size_t k_size,
     }
 
   grub_dprintf ("nx", "Setting attributes for 0x%"PRIxGRUB_ADDR"-0x%"PRIxGRUB_ADDR" to r%cx\n",
-		    k_address, k_address + k_size - 1,
+		    k_start_address, k_start_address + k_size - 1,
 		    (kernel_set_attrs & GRUB_MEM_ATTR_W) ? 'w' : '-');
-  grub_update_mem_attrs (k_address, k_size,
-			 kernel_set_attrs, kernel_clear_attrs);
 
-  grub_get_mem_attrs (k_address, 4096, &attrs);
-  grub_dprintf ("nx", "permissions for 0x%"PRIxGRUB_ADDR" are %s%s%s\n",
-		(grub_addr_t)k_address,
+
+
+  /* Parse the PE, find the executable section and set the corresponding attributes */
+  header = (struct grub_msdos_image_header *)k_address;
+  pe_image_header = (struct grub_pe_image_header *) ((char *) header + header->pe_image_header_offset);
+  coff_header = &(pe_image_header->coff_header);
+  sections = (struct grub_pe32_section_table *) ((char *) coff_header
+						 + sizeof (*coff_header)
+						 + coff_header->optional_header_size);
+  for (i = 0, section = sections; i < coff_header->num_sections; i++, section++)
+    {
+      if (section->characteristics & GRUB_PE32_SCN_MEM_EXECUTE)
+	{
+	  /* k_address + section->raw_data_offset is equal to k_start_address which is
+	     where the kernel text code starts */
+	  grub_update_mem_attrs (k_address + section->raw_data_offset, section->raw_data_size,
+				 kernel_set_attrs, kernel_clear_attrs);
+	  break;
+	}
+    }
+
+  grub_get_mem_attrs (k_start_address, 4096, &attrs);
+  grub_dprintf ("nx", "permissions for kernel 0x%"PRIxGRUB_ADDR" are %s%s%s\n",
+		(grub_addr_t)k_start_address,
 		(attrs & GRUB_MEM_ATTR_R) ? "r" : "-",
 		(attrs & GRUB_MEM_ATTR_W) ? "w" : "-",
 		(attrs & GRUB_MEM_ATTR_X) ? "x" : "-");
+
   if (grub_stack_addr != (grub_addr_t)-1ll)
     {
       grub_dprintf ("nx", "Setting attributes for stack at 0x%"PRIxGRUB_ADDR"-0x%"PRIxGRUB_ADDR" to rw%c\n",
@@ -285,7 +311,7 @@ grub_efi_linux_boot (grub_addr_t k_address, grub_size_t k_size,
   /* Invalidate the instruction cache */
   grub_arch_sync_caches((void *)kernel_addr, kernel_size);
 
-  hf = (handover_func)((char *)k_address + h_offset + offset);
+  hf = (handover_func)((char *)k_start_address + h_offset + offset);
   hf (grub_efi_image_handle, grub_efi_system_table, k_params);
 
   return GRUB_ERR_BUG;
@@ -455,7 +481,7 @@ grub_arch_efi_linux_boot_image (grub_addr_t addr, grub_size_t size, char *args,
 
   grub_dprintf ("linux", "linux command line: '%s'\n", args);
 
-  retval = grub_efi_linux_boot (addr, size, handover_offset,
+  retval = grub_efi_linux_boot (addr, size, 0, handover_offset,
 				(void *)addr, nx_supported);
 
   /* Never reached... */

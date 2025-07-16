@@ -27,6 +27,7 @@
 grub_err_t
 EXPORT_FUNC(grub_efi_linux_boot) (grub_addr_t kernel_address,
                                   grub_size_t kernel_size,
+                                  grub_size_t kernel_start,
                                   grub_off_t handover_offset,
                                   void *kernel_param, int nx_enabled);
 
