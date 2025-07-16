@@ -203,10 +203,11 @@ grub_efi_check_nx_required (int *nx_required)
 typedef void (*handover_func) (void *, grub_efi_system_table_t *, void *);
 
 grub_err_t
-grub_efi_linux_boot (grub_addr_t k_address, grub_size_t k_size,
+grub_efi_linux_boot (grub_addr_t k_address, grub_size_t k_size, grub_size_t k_start,
 		     grub_off_t h_offset, void *k_params,
 		     int nx_supported)
 {
+  grub_addr_t k_start_address = k_address + k_start;
   grub_efi_loaded_image_t *loaded_image = NULL;
   handover_func hf;
   int offset = 0;
@@ -223,6 +224,12 @@ grub_efi_linux_boot (grub_addr_t k_address, grub_size_t k_size,
   offset = 512;
 #endif
 
+  grub_dprintf ("edk", "k_address : %p\n", (void *) k_address);
+  grub_dprintf ("edk", "k_size : %lld\n", (long long) k_size);
+  grub_dprintf ("edk", "k_start : %lld\n", (long long) k_start);
+  grub_dprintf ("edk", "h_offset : %lld\n", (long long) h_offset);  
+  grub_dprintf ("edk", "nx_supported : %lld\n", (long long) nx_supported);  
+
   /*
    * Since the EFI loader is not calling the LoadImage() and StartImage()
    * services for loading the kernel and booting respectively, it has to
@@ -236,6 +243,52 @@ grub_efi_linux_boot (grub_addr_t k_address, grub_size_t k_size,
 
   grub_dprintf ("linux", "kernel_address: %p handover_offset: %p params: %p\n",
 		(void *)k_address, (void *)h_offset, k_params);
+
+  struct grub_msdos_image_header *header;
+  struct grub_pe_image_header *pe_image_header;
+  struct grub_pe32_coff_header *coff_header;
+  struct grub_pe32_section_table *sections;
+  struct grub_pe32_section_table *section;
+  grub_uint16_t i;
+
+  header = (struct grub_msdos_image_header *)k_address;
+  pe_image_header
+    = (struct grub_pe_image_header *) ((char *) header
+                                       + header->pe_image_header_offset);
+
+  int valid_signature = grub_memcmp (pe_image_header->signature, GRUB_PE32_SIGNATURE, GRUB_PE32_SIGNATURE_SIZE);
+  grub_dprintf ("edk", "valid_signature : %d\n", valid_signature);
+  grub_dprintf ("edk", "pe_image_header->signature : %s\n", pe_image_header->signature);
+
+  coff_header = &(pe_image_header->coff_header);
+  grub_dprintf ("edk", "coff_header->machine : %d\n", coff_header->machine);
+  grub_dprintf ("edk", "coff_header->num_sections : %d\n", coff_header->num_sections);
+
+  sections
+    = (struct grub_pe32_section_table *) ((char *) coff_header
+					  + sizeof (*coff_header)
+					  + coff_header->optional_header_size);
+  for (i = 0, section = sections;
+       i < coff_header->num_sections;
+       i++, section++)
+    {
+      grub_dprintf ("edk", "section name        : %s\n", section->name);
+      grub_dprintf ("edk", "virtual_size        : %lld\n", (long long) section->virtual_size);
+      grub_dprintf ("edk", "raw_data_size       : %lld\n", (long long) section->raw_data_size);
+      grub_dprintf ("edk", "raw_data_offset     : %lld\n", (long long) section->raw_data_offset);
+      grub_dprintf ("edk", "relocations_offset  : %lld\n", (long long) section->relocations_offset);
+      grub_dprintf ("edk", "line_number_offset  : %lld\n", (long long) section->line_numbers_offset);
+      grub_dprintf ("edk", "num_relocations     : %lld\n", (long long) section->num_relocations);
+      grub_dprintf ("edk", "num_line_number     : %lld\n", (long long) section->num_line_numbers);
+      grub_dprintf ("edk", "characteristics     : %08x\n", section->characteristics);
+
+      if (section->characteristics & GRUB_PE32_SCN_MEM_READ)
+	grub_dprintf ("edk", "section %s is R\n", section->name);
+      if (section->characteristics & GRUB_PE32_SCN_MEM_WRITE)
+	  grub_dprintf ("edk", "section %s is W\n", section->name);
+      if (section->characteristics & GRUB_PE32_SCN_MEM_EXECUTE)
+	  grub_dprintf ("edk", "section %s is X\n", section->name);
+    }
 
   grub_efi_check_nx_required(&nx_required);
 
@@ -251,14 +304,22 @@ grub_efi_linux_boot (grub_addr_t k_address, grub_size_t k_size,
     }
 
   grub_dprintf ("nx", "Setting attributes for 0x%"PRIxGRUB_ADDR"-0x%"PRIxGRUB_ADDR" to r%cx\n",
-		    k_address, k_address + k_size - 1,
+		    k_start_address, k_start_address + k_size - 1,
 		    (kernel_set_attrs & GRUB_MEM_ATTR_W) ? 'w' : '-');
-  grub_update_mem_attrs (k_address, k_size,
-			 kernel_set_attrs, kernel_clear_attrs);
 
-  grub_get_mem_attrs (k_address, 4096, &attrs);
+  /* find the executable .text section and set the corresponding memory settings */
+  for (i = 0, section = sections;
+       i < coff_header->num_sections;
+       i++, section++)
+    {
+      if (section->characteristics & GRUB_PE32_SCN_MEM_EXECUTE)
+	  grub_update_mem_attrs (k_address + section->raw_data_offset, section->raw_data_size,
+				 kernel_set_attrs, kernel_clear_attrs);
+    }
+
+  grub_get_mem_attrs (k_start_address, 4096, &attrs);
   grub_dprintf ("nx", "permissions for 0x%"PRIxGRUB_ADDR" are %s%s%s\n",
-		(grub_addr_t)k_address,
+		(grub_addr_t)k_start_address,
 		(attrs & GRUB_MEM_ATTR_R) ? "r" : "-",
 		(attrs & GRUB_MEM_ATTR_W) ? "w" : "-",
 		(attrs & GRUB_MEM_ATTR_X) ? "x" : "-");
@@ -285,7 +346,7 @@ grub_efi_linux_boot (grub_addr_t k_address, grub_size_t k_size,
   /* Invalidate the instruction cache */
   grub_arch_sync_caches((void *)kernel_addr, kernel_size);
 
-  hf = (handover_func)((char *)k_address + h_offset + offset);
+  hf = (handover_func)((char *)k_start_address + h_offset + offset);
   hf (grub_efi_image_handle, grub_efi_system_table, k_params);
 
   return GRUB_ERR_BUG;
@@ -455,7 +516,7 @@ grub_arch_efi_linux_boot_image (grub_addr_t addr, grub_size_t size, char *args,
 
   grub_dprintf ("linux", "linux command line: '%s'\n", args);
 
-  retval = grub_efi_linux_boot (addr, size, handover_offset,
+  retval = grub_efi_linux_boot (addr, size, 0, handover_offset,
 				(void *)addr, nx_supported);
 
   /* Never reached... */
