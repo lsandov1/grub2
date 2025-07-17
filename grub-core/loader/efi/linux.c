@@ -37,6 +37,7 @@
 #include <grub/efi/sb.h>
 #include <grub/i18n.h>
 #include <grub/lib/cmdline.h>
+#include <grub/safemath.h>
 #include <grub/verify.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
@@ -224,6 +225,7 @@ grub_efi_linux_boot (grub_addr_t k_address, grub_size_t k_size, grub_size_t k_st
   struct grub_pe32_coff_header *coff_header;
   struct grub_pe32_section_table *section, *sections;
   grub_uint16_t i;
+  grub_size_t sz;
 
 #ifdef __x86_64__
   offset = 512;
@@ -261,22 +263,41 @@ grub_efi_linux_boot (grub_addr_t k_address, grub_size_t k_size, grub_size_t k_st
 		    (kernel_set_attrs & GRUB_MEM_ATTR_W) ? 'w' : '-');
 
 
+  header = (struct grub_msdos_image_header *)k_address;
+
+  if (grub_add ((grub_addr_t) header, header->pe_image_header_offset, &sz))
+    return grub_error (GRUB_ERR_OUT_OF_RANGE, N_("Error on PE image header address calculation"));
+
+  pe_image_header = (struct grub_pe_image_header *) (sz);
+
+  if (pe_image_header > (k_address + k_size))
+    return grub_error (GRUB_ERR_BAD_OS, N_("PE image header address is invalid"));
+
+  if (grub_memcmp (pe_image_header->signature, GRUB_PE32_SIGNATURE,
+		   GRUB_PE32_SIGNATURE_SIZE) != 0)
+    return grub_error (GRUB_ERR_BAD_OS, N_("kernel PE magic is invalid"));
+
+  coff_header = &(pe_image_header->coff_header);
+  grub_dprintf ("linux", "coff_header 0x%"PRIxGRUB_ADDR" machine %08x\n", (grub_addr_t)coff_header, coff_header->machine);
+
+  if (grub_add ((grub_addr_t) coff_header, sizeof (*coff_header), &sz) ||
+      grub_add (sz, coff_header->optional_header_size, &sz))
+    return grub_error (GRUB_ERR_OUT_OF_RANGE, N_("Error on PE sections calculation"));
+
+  sections = (struct grub_pe32_section_table *) (sz);
+
+  if (sections > (k_address + k_size))
+    return grub_error (GRUB_ERR_BAD_OS, N_("Section address is invalid"));
 
   /* Parse the PE, find the executable section and set the corresponding attributes */
-  header = (struct grub_msdos_image_header *)k_address;
-  pe_image_header = (struct grub_pe_image_header *) ((char *) header + header->pe_image_header_offset);
-  coff_header = &(pe_image_header->coff_header);
-  sections = (struct grub_pe32_section_table *) ((char *) coff_header
-						 + sizeof (*coff_header)
-						 + coff_header->optional_header_size);
   for (i = 0, section = sections; i < coff_header->num_sections; i++, section++)
     {
       if (section->characteristics & GRUB_PE32_SCN_MEM_EXECUTE)
 	{
-	  /* k_address + section->raw_data_offset is equal to k_start_address which is
-	     where the kernel text code starts */
-	  grub_update_mem_attrs (k_address + section->raw_data_offset, section->raw_data_size,
-				 kernel_set_attrs, kernel_clear_attrs);
+	  if (grub_add ((grub_addr_t) k_address, section->raw_data_offset, &sz))
+	    return grub_error (GRUB_ERR_OUT_OF_RANGE, N_("Error on PE Executable section calculation"));
+
+	  grub_update_mem_attrs (sz, section->raw_data_size, kernel_set_attrs, kernel_clear_attrs);
 	  break;
 	}
     }
