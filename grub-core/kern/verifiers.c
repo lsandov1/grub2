@@ -21,6 +21,13 @@
 #include <grub/file.h>
 #include <grub/verify.h>
 #include <grub/dl.h>
+#if defined (GRUB_MACHINE_EFI) && defined (__x86_64__)
+#include <grub/cpu/efi/memory.h> /* GRUB_EFI_MAX_ALLOCATION_ADDRESS */
+#include <grub/efi/memory.h> /* GRUB_EFI_PAGE_SIZE */
+#include <grub/efi/efi.h> /* grub_efi_allocate_pages_real grub_efi_free_pages */
+#include <grub/efi/api.h> /* GRUB_EFI_ALLOCATE_MAX_ADDRESS GRUB_EFI_LOADER_CODE */
+#include <grub/mm.h> /* grub_update_mem_attrs GRUB_MEM_ATTR_R|W|X */
+#endif
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -30,9 +37,15 @@ struct grub_verified
 {
   grub_file_t file;
   void *buf;
+  grub_off_t size;
 };
 typedef struct grub_verified *grub_verified_t;
 
+#if defined (GRUB_MACHINE_EFI) && defined (__x86_64__)
+static void *efi_buff_malloc (grub_efi_uintn_t size);
+static void  verified_efi_free (grub_verified_t verified);
+#define verified_free(verified) verified_efi_free (verified)
+#else
 static void
 verified_free (grub_verified_t verified)
 {
@@ -42,6 +55,7 @@ verified_free (grub_verified_t verified)
       grub_free (verified);
     }
 }
+#endif
 
 static grub_ssize_t
 verified_read (struct grub_file *file, char *buf, grub_size_t len)
@@ -145,7 +159,15 @@ grub_verifiers_open (grub_file_t io, enum grub_file_type type)
     {
       goto fail;
     }
+  /* Just for the buffer allocation, we request EFI memory avoiding
+     possible OOM */
+#if defined (GRUB_MACHINE_EFI) && defined (__x86_64__)
+  verified->size = ret->size;
+  verified->buf = efi_buff_malloc (ret->size);
+#else
   verified->buf = grub_malloc (ret->size);
+#endif
+
   if (!verified->buf)
     {
       goto fail;
@@ -226,3 +248,65 @@ grub_verifiers_init (void)
 {
   grub_file_filter_register (GRUB_FILE_FILTER_VERIFY, grub_verifiers_open);
 }
+
+#if defined (GRUB_MACHINE_EFI) && defined (__x86_64__)
+
+#define BYTES_TO_PAGES(bytes)   (((bytes) + 0xfff) >> 12)
+
+static void *
+efi_buff_malloc (grub_efi_uintn_t size)
+{
+  void *addr = 0;
+  grub_uint64_t max;
+  grub_efi_uintn_t pages;
+  grub_efi_memory_type_t memtype;
+
+  pages = BYTES_TO_PAGES(size);
+  grub_dprintf ("verify", "Trying to allocate %lu pages (%lu bytes) from %p\n",
+		(unsigned long)pages, (unsigned long)size,
+		(void *)(unsigned long)GRUB_EFI_MAX_ALLOCATION_ADDRESS);
+
+  size = pages * GRUB_EFI_PAGE_SIZE;
+
+  addr = grub_efi_allocate_pages_real (GRUB_EFI_MAX_ALLOCATION_ADDRESS,
+				       pages,
+				       GRUB_EFI_ALLOCATE_MAX_ADDRESS,
+				       GRUB_EFI_LOADER_CODE);
+  if (addr)
+      grub_update_mem_attrs ((grub_addr_t)addr, size,
+			     GRUB_MEM_ATTR_R|GRUB_MEM_ATTR_W,
+			     GRUB_MEM_ATTR_X);
+
+  while (grub_error_pop ());
+
+  if (addr == NULL)
+    grub_error (GRUB_ERR_OUT_OF_MEMORY, "%s", N_("can't allocate kernel"));
+
+  grub_dprintf ("verify", "Allocated %lu pages (%lu bytes) at %p\n",
+		(unsigned long)pages, (unsigned long)size, addr);
+
+  return addr;
+}
+
+static void
+verified_efi_free (grub_verified_t verified)
+{
+  void *addr;
+  grub_off_t size;
+
+  if (verified)
+    {
+      addr = verified->buf;
+      size = verified->size;
+      if (addr && size)
+	{
+	  grub_dprintf ("verify", "Trying to free addr %p size %lu pages %lu\n",
+			(grub_addr_t)addr, (unsigned long)size,
+			(unsigned long)BYTES_TO_PAGES(size));
+	  grub_efi_free_pages ((grub_efi_physical_address_t)(grub_addr_t)addr,
+			       BYTES_TO_PAGES(size));
+	}
+      grub_free (verified);
+    }
+}
+#endif
