@@ -371,7 +371,7 @@ uki_parse_keyvals (grub_file_t f, grub_blsuki_entry_t *entry)
       err = grub_error (GRUB_ERR_FILE_READ_ERROR, "failed to read UKI image header");
       goto finish;
     }
-  if (dos->msdos_magic != GRUB_PE32_MAGIC)
+  if (dos->msdos_magic != GRUB_DOS_MAGIC)
     {
       err = grub_error (GRUB_ERR_BAD_FILE_TYPE, "plain image kernel is not supported");
       goto finish;
@@ -1022,7 +1022,7 @@ bls_create_entry (grub_blsuki_entry_t *entry)
 			linux_cmd, initrd_cmd ? initrd_cmd : "",
 			dt_cmd ? dt_cmd : "");
 
-  grub_normal_add_menu_entry (argc, argv, classes, id, users, hotkey, NULL, src, 0, entry);
+  grub_normal_add_menu_entry (argc, argv, classes, id, users, hotkey, NULL, src, 0, NULL, NULL, entry);
 
  finish:
   grub_free (linux_cmd);
@@ -1088,7 +1088,7 @@ uki_create_entry (grub_blsuki_entry_t *entry)
 			(options != NULL) ? " " : "",
 			(options != NULL) ? options : "");
 
-  grub_normal_add_menu_entry (1, argv, NULL, id, NULL, NULL, NULL, src, 0, entry);
+  grub_normal_add_menu_entry (1, argv, NULL, id, NULL, NULL, NULL, src, 0, NULL, NULL, entry);
 
  finish:
   grub_free (argv);
