@@ -38,6 +38,7 @@ verified_free (grub_verified_t verified)
 {
   if (verified)
     {
+      grub_dprintf ("oom", "%p : %p\n", verified, verified->buf);
       grub_free (verified->buf);
       grub_free (verified);
     }
@@ -48,6 +49,7 @@ verified_read (struct grub_file *file, char *buf, grub_size_t len)
 {
   grub_verified_t verified = file->data;
 
+  // grub_dprintf ("oom", "%p : %p : %d : %d\n", buf, verified->buf, file->offset, len);
   grub_memcpy (buf, (char *) verified->buf + file->offset, len);
   return len;
 }
@@ -126,6 +128,7 @@ grub_verifiers_open (grub_file_t io, enum grub_file_type type)
     }
 
   ret = grub_malloc (sizeof (*ret));
+  grub_dprintf ("oom", "file: %s ret: %s : %p : %d\n", io->name, ver->name, ret, sizeof (*ret));
   if (!ret)
     {
       goto fail;
@@ -140,12 +143,15 @@ grub_verifiers_open (grub_file_t io, enum grub_file_type type)
 		  N_("big file signature isn't implemented yet"));
       goto fail;
     }
+
   verified = grub_malloc (sizeof (*verified));
+  grub_dprintf ("oom", "file: %s verified: %s : %p : %d\n", io->name, ver->name, verified, sizeof (*verified));
   if (!verified)
     {
       goto fail;
     }
   verified->buf = grub_malloc (ret->size);
+  grub_dprintf ("oom", "file: %s verified->buf: %s : %p : %d\n", io->name, ver->name, verified->buf, ret->size);
   if (!verified->buf)
     {
       goto fail;

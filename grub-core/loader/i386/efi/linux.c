@@ -218,11 +218,14 @@ read(grub_file_t file, grub_uint8_t *bufp, grub_size_t len)
   if (!bbuf)
     grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("cannot allocate bounce buffer"));
 
+  grub_dprintf ("oom", "bounce buffer read: %s bbuf: %p size: %d\n", file->name, bbuf, bbufsz);
+
   while (bufpos < (long long)len)
     {
       grub_ssize_t sz;
 
       sz = grub_file_read (file, bbuf, MIN(bbufsz, len - bufpos));
+      grub_dprintf ("oom", "bounce buffer read: %s sz: %d\n", file->name, sz);
       if (sz < 0)
 	return sz;
       if (sz == 0)
@@ -270,6 +273,7 @@ grub_cmd_initrd (grub_command_t cmd, int argc, char *argv[])
   for (i = 0; i < argc; i++)
     {
       files[i] = grub_file_open (argv[i], GRUB_FILE_TYPE_LINUX_INITRD | GRUB_FILE_TYPE_NO_DECOMPRESS);
+      grub_dprintf ("oom", "file[%d]: %s size: %d\n", i, argv[i], grub_file_size (files[i]));
       if (! files[i])
         goto fail;
       nfiles++;
@@ -283,6 +287,8 @@ grub_cmd_initrd (grub_command_t cmd, int argc, char *argv[])
   grub_dprintf ("linux", "Trying to allocate initrd mem\n");
   initrd_mem = kernel_alloc(INITRD_MEM, size, GRUB_EFI_LOADER_DATA,
 			    N_("can't allocate initrd"));
+  grub_dprintf ("oom", "kernel_alloc %p: size: %d\n", initrd_mem, size);
+
   if (initrd_mem == NULL)
     goto fail;
   grub_dprintf ("linux", "initrd_mem = %p\n", initrd_mem);
@@ -301,6 +307,7 @@ grub_cmd_initrd (grub_command_t cmd, int argc, char *argv[])
       grub_ssize_t cursize = grub_file_size (files[i]);
       if (read (files[i], ptr, cursize) != cursize)
         {
+	  grub_dprintf ("oom", "bounce buffer read: %s size: %d\n", files[i]->name, cursize);
           if (!grub_errno)
             grub_error (GRUB_ERR_FILE_READ_ERROR, N_("premature end of file %s"),
                         argv[i]);
