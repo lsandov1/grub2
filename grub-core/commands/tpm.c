@@ -36,7 +36,23 @@ grub_tpm_verify_init (grub_file_t io,
 {
   *context = io->name;
   *flags |= GRUB_VERIFY_FLAGS_SINGLE_CHUNK;
-  return GRUB_ERR_NONE;
+
+  /*
+   * WORKAROUND: tpm: skip initd verification
+   * On large size initds and 'short' UEFI conv-mem firmware memory, we are seeing
+   * out of memory issues, thus skip the TPM measurement for this type of
+   * file. This implies that the verifier will not allocate the initrd buffer
+   * avoding the OOM but with the caveat that inird will not be TPM
+   * measured.
+   */
+  switch (type & GRUB_FILE_TYPE_MASK)
+    {
+    case GRUB_FILE_TYPE_LINUX_INITRD:
+      *flags = GRUB_VERIFY_FLAGS_SKIP_VERIFICATION;
+      return GRUB_ERR_NONE;
+    default:
+      return GRUB_ERR_NONE;
+    }
 }
 
 static grub_err_t
