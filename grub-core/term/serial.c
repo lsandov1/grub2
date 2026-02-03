@@ -218,7 +218,11 @@ grub_serial_find (const char *name)
       if (port != NULL)
         return port;
       FOR_SERIAL_PORTS (port)
+#ifdef GRUB_MACHINE_EFI
+        if (grub_strcmp (port->name, "efi0") == 0)
+#else
         if (grub_strcmp (port->name, "com0") == 0)
+#endif
           return port;
     }
 #endif
